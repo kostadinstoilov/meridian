@@ -14,17 +14,10 @@ export const articleStatusEnum = pgEnum('article_status', [
 
   'FETCH_FAILED',
   'RENDER_FAILED',
-  'AI_ANALYSIS_FAILED',
   'EMBEDDING_FAILED',
   'R2_UPLOAD_FAILED',
   'SKIPPED_TOO_OLD',
 ]);
-export const articleCompletenessEnum = pgEnum('article_completeness', [
-  'COMPLETE',
-  'PARTIAL_USEFUL',
-  'PARTIAL_USELESS',
-]);
-export const articleContentQualityEnum = pgEnum('article_content_quality', ['OK', 'LOW_QUALITY', 'JUNK']);
 
 export const $sources = pgTable('sources', {
   id: serial('id').primaryKey(),
@@ -47,19 +40,9 @@ export const $articles = pgTable(
     publishDate: timestamp('publish_date', { mode: 'date' }),
     status: articleStatusEnum().default('PENDING_FETCH'),
     contentFileKey: text('content_file_key'),
-
-    language: text('language'),
-    primary_location: text('primary_location'),
-    completeness: articleCompletenessEnum(),
-    content_quality: articleContentQualityEnum(),
-    used_browser: boolean('used_browser'),
-    event_summary_points: jsonb('event_summary_points'),
-    thematic_keywords: jsonb('thematic_keywords'),
-    topic_tags: jsonb('topic_tags'),
-    key_entities: jsonb('key_entities'),
-    content_focus: jsonb('content_focus'),
+    wordCount: integer('word_count'),
+    usedBrowser: boolean('used_browser'),
     embedding: vector('embedding', { dimensions: 384 }),
-
     failReason: text('fail_reason'),
 
     sourceId: integer('source_id')
