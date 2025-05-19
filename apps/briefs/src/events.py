@@ -23,11 +23,17 @@ class Event(BaseModel):
     url: str
     title: str
     publishDate: datetime  # changed from date to datetime
-    content: str
-    location: str
-    relevance: str
+    contentFileKey: str
+    primary_location: str
     completeness: str
-    summary: str
+    content_quality: str
+    event_summary_points: list[str]
+    thematic_keywords: list[str]
+    topic_tags: list[str]
+    key_entities: list[str]
+    content_focus: list[str]
+    embedding: list[float]
+    createdAt: datetime
 
     @field_validator("publishDate", mode="before")
     @classmethod
@@ -47,7 +53,7 @@ class Event(BaseModel):
 
 
 def get_events(date: str = None):
-    url = f"https://meridian-production.alceos.workers.dev/events"
+    url = f"https://meridian-backend-production.alceos.workers.dev/events"
 
     if date:
         url += f"?date={date}"
