@@ -1,11 +1,9 @@
-import getArticleAnalysisPrompt, { articleAnalysisSchema } from '../prompts/articleAnalysis.prompt';
 import { $articles, and, eq, gte, inArray, isNull } from '@meridian/database';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { DomainRateLimiter } from '../lib/rateLimiter';
-import { generateObject } from 'ai';
 import { Env } from '../index';
 import { err, ok } from 'neverthrow';
-import { generateSearchText, getDb } from '../lib/utils';
+import { getDb } from '../lib/utils';
 import { getArticleWithBrowser, getArticleWithFetch } from '../lib/articleFetchers';
 import { ResultAsync } from 'neverthrow';
 import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent, WorkflowStepConfig } from 'cloudflare:workers';
@@ -197,7 +195,7 @@ export class ProcessArticles extends WorkflowEntrypoint<Env, ProcessArticlesPara
             .update($articles)
             .set({
               status: 'CONTENT_FETCHED',
-              used_browser: result.used_browser,
+              usedBrowser: result.used_browser,
             })
             .where(eq($articles.id, result.id));
         });
@@ -239,134 +237,85 @@ export class ProcessArticles extends WorkflowEntrypoint<Env, ProcessArticlesPara
         const articleLogger = processingLogger.child({ article_id: article.id });
         articleLogger.info('Analyzing article');
 
-        try {
-          const articleAnalysis = await step.do(
-            `analyze article ${article.id}`,
-            { retries: { limit: 3, delay: '2 seconds', backoff: 'exponential' }, timeout: '1 minute' },
-            async () => {
-              const response = await generateObject({
-                model: google('gemini-1.5-flash-8b-001'),
-                temperature: 0,
-                prompt: getArticleAnalysisPrompt(article.title, article.text),
-                schema: articleAnalysisSchema,
-              });
-              return response.object;
-            }
-          );
+        const date = article.publishedTime ? new Date(article.publishedTime) : new Date();
+        const fileKey = `${date.getUTCFullYear()}/${date.getUTCMonth() + 1}/${date.getUTCDate()}/${article.id}.txt`;
 
-          articleLogger.debug('Article analysis completed', {
-            topic_tags_count: articleAnalysis.topic_tags.length,
-            entities_count: articleAnalysis.key_entities.length,
-          });
+        articleLogger.info('Updating article info in DB');
 
-          const date = article.publishedTime ? new Date(article.publishedTime) : new Date();
-          const fileKey = `${date.getUTCFullYear()}/${date.getUTCMonth() + 1}/${date.getUTCDate()}/${article.id}.txt`;
+        // run embedding and upload in parallel
+        const [embeddingResult, uploadResult] = await Promise.allSettled([
+          step.do(`generate embeddings for article ${article.id}`, async () => {
+            articleLogger.info('Generating embeddings');
+            const embeddings = await createEmbeddings(env, [`${article.title} ${article.text}`]);
+            if (embeddings.isErr()) throw embeddings.error;
+            return embeddings.value[0];
+          }),
+          step.do(`upload article contents to R2 for article ${article.id}`, async () => {
+            articleLogger.info('Uploading article contents to R2');
+            await env.ARTICLES_BUCKET.put(fileKey, article.text);
+            return fileKey;
+          }),
+        ]);
 
-          articleLogger.info('Updating article info in DB');
+        // handle results in a separate step
+        await step.do(`update article ${article.id} status`, async () => {
+          // check for failures
+          if (embeddingResult.status === 'rejected') {
+            const error = embeddingResult.reason;
+            articleLogger.error(
+              'Embedding generation failed',
+              { reason: String(error) },
+              error instanceof Error ? error : new Error(String(error))
+            );
 
-          // run embedding and upload in parallel
-          const [embeddingResult, uploadResult] = await Promise.allSettled([
-            step.do(`generate embeddings for article ${article.id}`, async () => {
-              articleLogger.info('Generating embeddings');
-              const embeddings = await createEmbeddings(env, [
-                generateSearchText({ title: article.title, ...articleAnalysis }),
-              ]);
-              if (embeddings.isErr()) throw embeddings.error;
-              return embeddings.value[0];
-            }),
-            step.do(`upload article contents to R2 for article ${article.id}`, async () => {
-              articleLogger.info('Uploading article contents to R2');
-              await env.ARTICLES_BUCKET.put(fileKey, article.text);
-              return fileKey;
-            }),
-          ]);
-
-          // handle results in a separate step
-          await step.do(`update article ${article.id} status`, async () => {
-            // check for failures
-            if (embeddingResult.status === 'rejected') {
-              const error = embeddingResult.reason;
-              articleLogger.error(
-                'Embedding generation failed',
-                { reason: String(error) },
-                error instanceof Error ? error : new Error(String(error))
-              );
-
-              await db
-                .update($articles)
-                .set({
-                  processedAt: new Date(),
-                  failReason: `Embedding generation failed: ${String(error)}`,
-                  status: 'EMBEDDING_FAILED',
-                })
-                .where(eq($articles.id, article.id));
-              return;
-            }
-
-            if (uploadResult.status === 'rejected') {
-              const error = uploadResult.reason;
-              articleLogger.error(
-                'R2 upload failed',
-                { reason: String(error) },
-                error instanceof Error ? error : new Error(String(error))
-              );
-
-              await db
-                .update($articles)
-                .set({
-                  processedAt: new Date(),
-                  failReason: `R2 upload failed: ${String(error)}`,
-                  status: 'R2_UPLOAD_FAILED',
-                })
-                .where(eq($articles.id, article.id));
-              return;
-            }
-
-            // if both succeeded, update with success state
-            articleLogger.info('Article processing completed successfully');
             await db
               .update($articles)
               .set({
                 processedAt: new Date(),
-                title: article.title,
-                language: articleAnalysis.language,
-                contentFileKey: uploadResult.value,
-                primary_location: articleAnalysis.primary_location,
-                completeness: articleAnalysis.completeness,
-                content_quality: articleAnalysis.content_quality,
-                event_summary_points: articleAnalysis.event_summary_points,
-                thematic_keywords: articleAnalysis.thematic_keywords,
-                topic_tags: articleAnalysis.topic_tags,
-                key_entities: articleAnalysis.key_entities,
-                content_focus: articleAnalysis.content_focus,
-                embedding: embeddingResult.value,
-                status: 'PROCESSED',
+                failReason: `Embedding generation failed: ${String(error)}`,
+                status: 'EMBEDDING_FAILED',
               })
               .where(eq($articles.id, article.id));
-          });
+            return;
+          }
 
-          articleLogger.info('Article processed successfully');
+          if (uploadResult.status === 'rejected') {
+            const error = uploadResult.reason;
+            articleLogger.error(
+              'R2 upload failed',
+              { reason: String(error) },
+              error instanceof Error ? error : new Error(String(error))
+            );
 
-          return { id: article.id, success: true };
-        } catch (error) {
-          articleLogger.error(
-            'Article analysis failed',
-            { reason: error instanceof Error ? error.message : String(error) },
-            error instanceof Error ? error : new Error(String(error))
-          );
-
-          await step.do(`mark article ${article.id} as failed in analysis`, dbStepConfig, async () =>
-            db
+            await db
               .update($articles)
               .set({
                 processedAt: new Date(),
-                failReason: `Analysis failed: ${error instanceof Error ? error.message : String(error)}`,
-                status: 'AI_ANALYSIS_FAILED',
+                failReason: `R2 upload failed: ${String(error)}`,
+                status: 'R2_UPLOAD_FAILED',
               })
-              .where(eq($articles.id, article.id))
-          );
-          return { id: article.id, success: false, error };
-        }
+              .where(eq($articles.id, article.id));
+            return;
+          }
+
+          // if both succeeded, update with success state
+          articleLogger.info('Article processing completed successfully');
+          await db
+            .update($articles)
+            .set({
+              processedAt: new Date(),
+              title: article.title,
+              contentFileKey: uploadResult.value,
+              embedding: embeddingResult.value,
+              status: 'PROCESSED',
+              wordCount: article.text.split(' ').length,
+            })
+            .where(eq($articles.id, article.id));
+        });
+
+        articleLogger.info('Article processed successfully');
+
+        return { id: article.id, success: true };
       })
     );
 
