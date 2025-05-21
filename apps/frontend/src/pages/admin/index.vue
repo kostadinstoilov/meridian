@@ -51,9 +51,6 @@ const stats = computed(() => {
     avgErrorRate: Math.round(
       filteredSources.value.reduce((sum, s) => sum + (s.errorRate ?? 0), 0) / filteredSources.value.length
     ),
-    avgLowQuality: Math.round(
-      filteredSources.value.reduce((sum, s) => sum + (s.lowQualityRate ?? 0), 0) / filteredSources.value.length
-    ),
     avgArticlesPerDay: Math.round(
       filteredSources.value.reduce((sum, s) => sum + (s.avgPerDay || 0), 0) / filteredSources.value.length
     ),
@@ -179,7 +176,7 @@ const getSourceHealth = (source: Source) => {
     : true;
 
   if ((source.errorRate ?? 0) > 10 || isStale) return 'red';
-  if ((source.errorRate ?? 0) > 0 || (source.lowQualityRate ?? 0) > 15) return 'yellow';
+  if ((source.errorRate ?? 0) > 0) return 'yellow';
   return 'green';
 };
 
@@ -272,18 +269,6 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
           :class="{ 'text-red-600': (stats?.avgErrorRate ?? 0) > 5, 'text-gray-900': (stats?.avgErrorRate ?? 0) <= 5 }"
         >
           {{ stats?.avgErrorRate ?? '-' }}%
-        </div>
-      </div>
-      <div class="bg-white p-4 rounded border">
-        <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Avg Low Quality</div>
-        <div
-          class="text-2xl font-medium"
-          :class="{
-            'text-amber-600': (stats?.avgLowQuality ?? 0) > 10,
-            'text-gray-900': (stats?.avgLowQuality ?? 0) <= 10,
-          }"
-        >
-          {{ stats?.avgLowQuality ?? '-' }}%
         </div>
       </div>
       <div class="bg-white p-4 rounded border">
@@ -424,15 +409,7 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
               Avg/Day
               <span v-if="sortKey === 'avgPerDay'" class="text-gray-400">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span>
             </th>
-            <th
-              class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-              @click="toggleSort('lowQualityRate')"
-            >
-              Low Quality
-              <span v-if="sortKey === 'lowQualityRate'" class="text-gray-400">{{
-                sortOrder === 'asc' ? '↑' : '↓'
-              }}</span>
-            </th>
+
             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-8">Paywall</th>
             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
           </tr>
@@ -471,9 +448,7 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
             <td class="px-4 py-2">{{ source.processSuccessRate?.toFixed(1) ?? 'N/A' }}%</td>
             <td class="px-4 py-2">{{ source.totalArticles }}</td>
             <td class="px-4 py-2">{{ source.avgPerDay ? source.avgPerDay.toFixed(1) : 'N/A' }}</td>
-            <td class="px-4 py-2" :class="{ 'text-amber-600': (source.lowQualityRate ?? 0) > 10 }">
-              {{ source.lowQualityRate?.toFixed(1) ?? 'N/A' }}%
-            </td>
+
             <td class="px-4 py-2">
               <component
                 :is="source.paywall ? LockClosedIcon : LockOpenIcon"

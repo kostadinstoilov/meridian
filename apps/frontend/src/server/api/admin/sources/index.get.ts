@@ -17,7 +17,6 @@ export default defineEventHandler(async event => {
     columns: {
       sourceId: true,
       status: true,
-      content_quality: true,
       createdAt: true,
       processedAt: true,
     },
@@ -34,9 +33,6 @@ export default defineEventHandler(async event => {
     const totalArticles = sourceArticles.length;
     const processedArticles = sourceArticles.filter(a => a.status === 'PROCESSED');
     const failedArticles = sourceArticles.filter(a => a.status?.endsWith('_FAILED'));
-    const lowQualityArticles = processedArticles.filter(
-      a => a.content_quality === 'LOW_QUALITY' || a.content_quality === 'JUNK'
-    );
 
     // calculate processing time for processed articles
     const processingTimes = processedArticles
@@ -72,7 +68,6 @@ export default defineEventHandler(async event => {
       // health metrics
       processSuccessRate: totalArticles ? (processedArticles.length / totalArticles) * 100 : null,
       errorRate: totalArticles ? (failedArticles.length / totalArticles) * 100 : null,
-      lowQualityRate: processedArticles.length ? (lowQualityArticles.length / processedArticles.length) * 100 : null,
       avgProcessingTime,
     };
   });
