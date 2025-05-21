@@ -1,13 +1,13 @@
+import { DurableObject } from 'cloudflare:workers';
 import { $articles, $sources, eq } from '@meridian/database';
-import { Env } from '../index';
-import { err, ok, Result, ResultAsync } from 'neverthrow';
-import { getDb } from '../lib/utils';
+import { type Result, ResultAsync, err, ok } from 'neverthrow';
+import { z } from 'zod';
+import type { Env } from '../index';
 import { Logger } from '../lib/logger';
 import { parseRSSFeed } from '../lib/parsers';
 import { tryCatchAsync } from '../lib/tryCatchAsync';
+import { getDb } from '../lib/utils';
 import { userAgents } from '../lib/utils';
-import { DurableObject } from 'cloudflare:workers';
-import { z } from 'zod';
 
 /**
  * Schema for validating SourceState
@@ -64,25 +64,26 @@ async function attemptWithRetries<T, E extends Error>(
     if (result.isOk()) {
       logger.debug(`Attempt ${attempt} successful.`);
       return ok(result.value); // Return successful result immediately
-    } else {
-      lastError = result.error; // Store the error
-      logger.warn(
-        `Attempt ${attempt} failed.`,
-        { error_name: lastError.name, error_message: lastError.message },
-        lastError
-      );
+    }
 
-      // If not the last attempt, wait before retrying
-      if (attempt < maxRetries) {
-        const delay = initialDelayMs * Math.pow(2, attempt - 1);
-        logger.debug(`Waiting before next attempt.`, { delay_ms: delay });
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
+    lastError = result.error; // Store the error
+    logger.warn(
+      `Attempt ${attempt} failed.`,
+      { error_name: lastError.name, error_message: lastError.message },
+      lastError
+    );
+
+    // If not the last attempt, wait before retrying
+    if (attempt < maxRetries) {
+      const delay = initialDelayMs * 2 ** (attempt - 1);
+      logger.debug('Waiting before next attempt.', { delay_ms: delay });
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 
   // If loop finishes, all retries failed
-  logger.error(`Failed after max attempts.`, { max_retries: maxRetries }, lastError!);
+  logger.error('Failed after max attempts.', { max_retries: maxRetries }, lastError);
+  // biome-ignore lint/style/noNonNullAssertion: <explanation>
   return err(lastError!);
 }
 
@@ -140,7 +141,7 @@ export class SourceScraperDO extends DurableObject<Env> {
 
     let tier = sourceData.scrape_frequency;
     if (![1, 2, 3, 4].includes(tier)) {
-      logger.warn(`Invalid scrape_frequency received. Defaulting to 2.`, { invalid_frequency: tier });
+      logger.warn('Invalid scrape_frequency received. Defaulting to 2.', { invalid_frequency: tier });
       tier = 2; // Default tier
     }
 
@@ -208,7 +209,7 @@ export class SourceScraperDO extends DurableObject<Env> {
   async alarm(): Promise<void> {
     // Keep logger instance outside try block if possible,
     // but create child logger inside if needed after state is fetched.
-    let alarmLogger = this.logger.child({ operation: 'alarm' }); // Initial logger
+    const alarmLogger = this.logger.child({ operation: 'alarm' }); // Initial logger
 
     try {
       const state = await this.ctx.storage.get<SourceState>('state');
@@ -298,7 +299,7 @@ export class SourceScraperDO extends DurableObject<Env> {
       const articlesToProcess: Omit<typeof $articles.$inferInsert, 'id'>[] = [];
       const articlesToSkip: Omit<typeof $articles.$inferInsert, 'id'>[] = [];
 
-      articles.forEach(article => {
+      for (const article of articles) {
         const publishTimestamp = article.pubDate ? article.pubDate.getTime() : 0;
 
         if (publishTimestamp > ageThreshold) {
@@ -320,7 +321,7 @@ export class SourceScraperDO extends DurableObject<Env> {
             failReason: 'Article older than 48-hour processing threshold',
           });
         }
-      });
+      }
 
       if (articlesToProcess.length === 0 && articlesToSkip.length === 0) {
         alarmLogger.info('No articles found (neither new nor old)');
@@ -383,7 +384,7 @@ export class SourceScraperDO extends DurableObject<Env> {
       }
 
       const insertedRows = insertResult.value; // Type: { insertedId: number, insertedUrl: string }[]
-      dbLogger.info(`DB Insert completed`, { affected_rows: insertedRows.length });
+      dbLogger.info('DB Insert completed', { affected_rows: insertedRows.length });
 
       // Filter inserted IDs to only include those that were meant for processing
       const urlsToProcess = new Set(articlesToProcess.map(a => a.url));
@@ -471,7 +472,9 @@ export class SourceScraperDO extends DurableObject<Env> {
       fetchLogger.info('Manual trigger received');
       await this.ctx.storage.setAlarm(Date.now()); // Trigger alarm soon
       return new Response('Alarm set');
-    } else if (url.pathname === '/status') {
+    }
+
+    if (url.pathname === '/status') {
       fetchLogger.info('Status request received');
       const state = await this.ctx.storage.get('state');
       const alarm = await this.ctx.storage.getAlarm();
@@ -479,7 +482,9 @@ export class SourceScraperDO extends DurableObject<Env> {
         state: state || { error: 'State not initialized' },
         nextAlarmTimestamp: alarm,
       });
-    } else if (url.pathname === '/delete' && request.method === 'DELETE') {
+    }
+
+    if (url.pathname === '/delete' && request.method === 'DELETE') {
       fetchLogger.info('Delete request received');
       try {
         await this.destroy();

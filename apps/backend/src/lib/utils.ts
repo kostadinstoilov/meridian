@@ -1,8 +1,7 @@
 import { getDb as getDbFromDatabase } from '@meridian/database';
-import { Context } from 'hono';
-import { HonoEnv } from '../app';
-import { articleAnalysisSchema } from '../prompts/articleAnalysis.prompt';
+import type { Context } from 'hono';
 import { z } from 'zod';
+import type { HonoEnv } from '../app';
 
 export function getDb(hyperdrive: Hyperdrive) {
   return getDbFromDatabase(hyperdrive.connectionString, {

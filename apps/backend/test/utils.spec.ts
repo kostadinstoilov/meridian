@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Context } from 'hono';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { HonoEnv } from '../src/app';
 import { hasValidAuthToken } from '../src/lib/utils';
-import { Context } from 'hono';
-import { HonoEnv } from '../src/app';
 
 describe('hasValidAuthToken', () => {
   // Mock Context object
@@ -55,7 +55,7 @@ describe('hasValidAuthToken', () => {
   it('should return false when Authorization header has incorrect token value', () => {
     // Setup header mock to return an invalid token
     mockContext.req.header = vi.fn().mockImplementation((name: string) => {
-      if (name === 'Authorization') return `Bearer wrong-token`;
+      if (name === 'Authorization') return 'Bearer wrong-token';
       return undefined;
     });
 

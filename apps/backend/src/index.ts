@@ -1,7 +1,7 @@
 import app from './app';
 import { SourceScraperDO } from './durable_objects/sourceScraperDO';
-import { startProcessArticleWorkflow } from './workflows/processArticles.workflow';
 import { Logger } from './lib/logger';
+import { startProcessArticleWorkflow } from './workflows/processArticles.workflow';
 
 type ArticleQueueMessage = { articles_id: number[] };
 

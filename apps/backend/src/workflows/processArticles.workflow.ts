@@ -1,14 +1,14 @@
-import { $articles, and, eq, gte, inArray, isNull } from '@meridian/database';
+import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep, type WorkflowStepConfig } from 'cloudflare:workers';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { DomainRateLimiter } from '../lib/rateLimiter';
-import { Env } from '../index';
+import { $articles, and, eq, gte, inArray, isNull } from '@meridian/database';
 import { err, ok } from 'neverthrow';
-import { getDb } from '../lib/utils';
-import { getArticleWithBrowser, getArticleWithFetch } from '../lib/articleFetchers';
 import { ResultAsync } from 'neverthrow';
-import { WorkflowEntrypoint, WorkflowStep, WorkflowEvent, WorkflowStepConfig } from 'cloudflare:workers';
+import type { Env } from '../index';
+import { getArticleWithBrowser, getArticleWithFetch } from '../lib/articleFetchers';
 import { createEmbeddings } from '../lib/embeddings';
 import { Logger } from '../lib/logger';
+import { DomainRateLimiter } from '../lib/rateLimiter';
+import { getDb } from '../lib/utils';
 
 const TRICKY_DOMAINS = [
   'reuters.com',
@@ -123,6 +123,7 @@ export class ProcessArticles extends WorkflowEntrypoint<Env, ProcessArticlesPara
       scrapeLogger.info('Attempting to scrape article');
 
       // This will contain either a successful result or a controlled error
+      // biome-ignore lint/suspicious/noImplicitAnyLet: <explanation>
       let result;
       try {
         result = await step.do(
@@ -135,23 +136,23 @@ export class ProcessArticles extends WorkflowEntrypoint<Env, ProcessArticlesPara
               const browserResult = await getArticleWithBrowser(env, article.url);
               if (browserResult.isErr()) throw browserResult.error.error;
               return { id: article.id, success: true, html: browserResult.value, used_browser: true };
-            } else {
-              scrapeLogger.info('Attempting fetch-first approach');
-              const fetchResult = await getArticleWithFetch(article.url);
-              if (!fetchResult.isErr()) {
-                return { id: article.id, success: true, html: fetchResult.value, used_browser: false };
-              }
-
-              // Fetch failed, try browser with jitter
-              scrapeLogger.info('Fetch failed, falling back to browser');
-              const jitterTime = Math.random() * 2500 + 500;
-              await step.sleep(`jitter`, jitterTime);
-
-              const browserResult = await getArticleWithBrowser(env, article.url);
-              if (browserResult.isErr()) throw browserResult.error.error;
-
-              return { id: article.id, success: true, html: browserResult.value, used_browser: true };
             }
+
+            scrapeLogger.info('Attempting fetch-first approach');
+            const fetchResult = await getArticleWithFetch(article.url);
+            if (!fetchResult.isErr()) {
+              return { id: article.id, success: true, html: fetchResult.value, used_browser: false };
+            }
+
+            // Fetch failed, try browser with jitter
+            scrapeLogger.info('Fetch failed, falling back to browser');
+            const jitterTime = Math.random() * 2500 + 500;
+            await step.sleep('jitter', jitterTime);
+
+            const browserResult = await getArticleWithBrowser(env, article.url);
+            if (browserResult.isErr()) throw browserResult.error.error;
+
+            return { id: article.id, success: true, html: browserResult.value, used_browser: true };
           }
         );
       } catch (error) {

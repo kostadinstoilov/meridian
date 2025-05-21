@@ -12,9 +12,12 @@
     "dev": "wrangler dev",
     "test": "vitest run",
     "cf-typegen": "wrangler types",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@biomejs/biome": "1.9.4",
     "@cloudflare/vitest-pool-workers": "^0.8.19",
     "@types/node": "^22.14.1",
     "typescript": "^5.8.2",

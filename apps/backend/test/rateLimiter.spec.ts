@@ -1,6 +1,6 @@
-import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
-import { DomainRateLimiter } from '../src/lib/rateLimiter';
 import type { WorkflowStep } from 'cloudflare:workers';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DomainRateLimiter } from '../src/lib/rateLimiter';
 
 type BatchItem = {
   id: number | string;

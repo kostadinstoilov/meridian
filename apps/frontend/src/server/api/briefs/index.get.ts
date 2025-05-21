@@ -1,4 +1,4 @@
-import { $reports, desc, getDb } from '@meridian/database';
+import { $reports, desc } from '@meridian/database';
 import { ensureDate, formatReportDate, generateReportSlug, getDB } from '~/server/lib/utils';
 
 export default defineEventHandler(async event => {

@@ -1,7 +1,7 @@
-import { Env } from '../index';
 import { err, ok } from 'neverthrow';
-import { tryCatchAsync } from './tryCatchAsync';
 import { z } from 'zod';
+import type { Env } from '../index';
+import { tryCatchAsync } from './tryCatchAsync';
 
 const embeddingsResponseSchema = z.object({
   embeddings: z.array(z.array(z.number())),
@@ -9,7 +9,7 @@ const embeddingsResponseSchema = z.object({
 
 export async function createEmbeddings(env: Env, texts: string[]) {
   const response = await tryCatchAsync(
-    fetch(env.MERIDIAN_ML_SERVICE_URL + '/embeddings', {
+    fetch(`${env.MERIDIAN_ML_SERVICE_URL}/embeddings`, {
       method: 'POST',
       body: JSON.stringify({ texts }),
       headers: {
@@ -20,7 +20,8 @@ export async function createEmbeddings(env: Env, texts: string[]) {
   );
   if (response.isErr()) {
     return err(response.error);
-  } else if (!response.value.ok) {
+  }
+  if (!response.value.ok) {
     return err(new Error(`Failed to fetch embeddings: ${response.value.statusText}`));
   }
 

@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { parseArticle } from '../src/lib/parsers';
-import * as linkedom from 'linkedom';
 import { Readability } from '@mozilla/readability';
+import * as linkedom from 'linkedom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { parseArticle } from '../src/lib/parsers';
 
 // Mock the Readability and parseHTML dependencies
 vi.mock('@mozilla/readability', () => {
@@ -25,7 +25,7 @@ describe('parseArticle', () => {
     // Default mocks for linkedom
     vi.mocked(linkedom.parseHTML).mockReturnValue({
       document: 'mock-document',
-    } as any);
+    } as unknown);
   });
 
   it('should return an error Result if Readability constructor or parse() throws an exception', () => {
@@ -49,7 +49,7 @@ describe('parseArticle', () => {
     vi.mocked(Readability).mockImplementation(() => {
       return {
         parse: () => null,
-      } as any;
+      } as unknown as Readability;
     });
 
     // Execute
@@ -70,7 +70,7 @@ describe('parseArticle', () => {
           title: '', // empty title
           textContent: 'Some content',
         }),
-      } as any;
+      } as unknown as Readability;
     });
 
     // Execute
@@ -91,7 +91,7 @@ describe('parseArticle', () => {
           title: 'Article Title',
           textContent: '', // empty textContent
         }),
-      } as any;
+      } as unknown as Readability;
     });
 
     // Execute
@@ -113,7 +113,7 @@ describe('parseArticle', () => {
           textContent: 'Article content here',
           publishedTime: '2025-03-18T18:04:44-04:00',
         }),
-      } as any;
+      } as unknown as Readability;
     });
 
     // Execute
@@ -139,7 +139,7 @@ describe('parseArticle', () => {
           title: 'Article Title',
           textContent: messyText,
         }),
-      } as any;
+      } as unknown as Readability;
     });
 
     // Execute

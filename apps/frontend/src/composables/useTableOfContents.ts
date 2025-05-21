@@ -43,7 +43,7 @@ export function useTableOfContents({
 
     elements.forEach((el, index) => {
       let level: number;
-      let text = el.textContent?.trim() || '';
+      const text = el.textContent?.trim() || '';
       let targetElement: HTMLElement = el as HTMLElement;
 
       if (el.tagName === 'H2') level = 2;

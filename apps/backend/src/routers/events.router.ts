@@ -1,7 +1,7 @@
+import { $articles, $sources, and, eq, gte, isNotNull, lte, not } from '@meridian/database';
 import { Hono } from 'hono';
-import { HonoEnv } from '../app';
-import { $articles, $sources, eq, and, gte, lte, not, isNotNull } from '@meridian/database';
-import { hasValidAuthToken, getDb } from '../lib/utils';
+import type { HonoEnv } from '../app';
+import { getDb, hasValidAuthToken } from '../lib/utils';
 
 const route = new Hono<HonoEnv>().get('/', async c => {
   // require bearer auth token
@@ -19,7 +19,7 @@ const route = new Hono<HonoEnv>().get('/', async c => {
     // Append T07:00:00Z to ensure it's 7am UTC
     endDate = new Date(`${dateParam}T07:00:00Z`);
     // Check if date is valid
-    if (isNaN(endDate.getTime())) {
+    if (Number.isNaN(endDate.getTime())) {
       return c.json({ error: 'Invalid date format. Please use yyyy-mm-dd' }, 400);
     }
   } else {
@@ -43,25 +43,15 @@ const route = new Hono<HonoEnv>().get('/', async c => {
         title: $articles.title,
         publishDate: $articles.publishDate,
         contentFileKey: $articles.contentFileKey,
-        primary_location: $articles.primary_location,
-        completeness: $articles.completeness,
-        content_quality: $articles.content_quality,
-        event_summary_points: $articles.event_summary_points,
-        thematic_keywords: $articles.thematic_keywords,
-        topic_tags: $articles.topic_tags,
-        key_entities: $articles.key_entities,
-        content_focus: $articles.content_focus,
         embedding: $articles.embedding,
         createdAt: $articles.createdAt,
       })
       .from($articles)
       .where(
         and(
-          isNotNull($articles.primary_location),
+          isNotNull($articles.embedding),
           gte($articles.publishDate, startDate),
           lte($articles.publishDate, endDate),
-          not(eq($articles.content_quality, 'JUNK')),
-          not(eq($articles.completeness, 'PARTIAL_USELESS')),
           isNotNull($articles.processedAt)
         )
       ),

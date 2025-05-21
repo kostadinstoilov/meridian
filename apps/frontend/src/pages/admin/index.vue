@@ -17,12 +17,12 @@ if (sourcesError.value) {
 }
 
 type Source = NonNullable<typeof data.value>['sources'][number];
-type Overview = NonNullable<typeof data.value>['overview'];
+// type Overview = NonNullable<typeof data.value>['overview'];
 
 const sources = computed(() => data.value?.sources ?? []);
 const overview = computed(() => data.value?.overview);
 
-const config = useRuntimeConfig();
+// const config = useRuntimeConfig();
 
 const sortKey = ref<keyof Source | ''>('');
 const sortOrder = ref<'asc' | 'desc'>('asc');
@@ -167,7 +167,7 @@ async function addSource() {
     });
     alert('Source added successfully');
   } catch (error) {
-    console.error(sourcesError.value);
+    console.error(sourcesError, error);
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch sources' });
   }
 }
@@ -208,7 +208,7 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
       <h1 class="text-xl font-medium text-gray-900">Source Analytics</h1>
 
       <!-- button to add a new source -->
-      <button @click="addSource" class="border px-4 py-2 rounded hover:cursor-pointer hover:bg-gray-100">
+      <button class="border px-4 py-2 rounded hover:cursor-pointer hover:bg-gray-100" @click="addSource">
         Add Source
       </button>
     </div>
@@ -314,14 +314,14 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
 
         <div class="flex items-center gap-2">
           <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="showPaywallOnly" class="rounded border-gray-300" />
+            <input v-model="showPaywallOnly" type="checkbox" class="rounded border-gray-300" />
             <span class="text-gray-600">Paywall only</span>
           </label>
         </div>
 
         <div class="flex items-center gap-2">
           <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="showErrorsOnly" class="rounded border-gray-300" />
+            <input v-model="showErrorsOnly" type="checkbox" class="rounded border-gray-300" />
             <span class="text-gray-600">Error rate above:</span>
           </label>
           <input
@@ -337,7 +337,7 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
 
         <div class="flex items-center gap-2">
           <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="enableTimeFilter" class="rounded border-gray-300" />
+            <input v-model="enableTimeFilter" type="checkbox" class="rounded border-gray-300" />
             <span class="text-gray-600">Sources checked within:</span>
           </label>
           <input
@@ -352,7 +352,7 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
 
         <div class="flex items-center gap-2">
           <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="enableArticleFilter" class="rounded border-gray-300" />
+            <input v-model="enableArticleFilter" type="checkbox" class="rounded border-gray-300" />
             <span class="text-gray-600">Articles:</span>
           </label>
           <select
@@ -383,7 +383,7 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
       <table class="min-w-full divide-y divide-gray-200">
         <thead>
           <tr class="bg-gray-50">
-            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-8"></th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-8" />
             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
             <th
               class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -449,7 +449,7 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
             }"
           >
             <td class="px-4 py-2">
-              <span class="inline-block w-3 h-3 rounded-full" :class="getHealthColor(getSourceHealth(source))"></span>
+              <span class="inline-block w-3 h-3 rounded-full" :class="getHealthColor(getSourceHealth(source))" />
             </td>
             <td class="px-4 py-2">
               <NuxtLink :to="source.url" target="_blank" class="text-gray-500 hover:underline">{{

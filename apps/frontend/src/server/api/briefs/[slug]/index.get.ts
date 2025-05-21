@@ -1,4 +1,4 @@
-import { $reports, eq, and, gte, lte } from '@meridian/database';
+import { $reports, and, gte, lte } from '@meridian/database';
 import { ensureDate, formatReportDate, getDB } from '~/server/lib/utils';
 
 interface Brief {

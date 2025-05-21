@@ -1,11 +1,11 @@
 <template>
-  <nav aria-label="Table of contents" ref="tocContainer" class="toc-container">
+  <nav ref="tocContainer" aria-label="Table of contents" class="toc-container">
     <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-700 dark:text-gray-300 mb-3">On this page</h2>
     <ul class="space-y-2 border-l border-gray-200 dark:border-gray-700">
       <!-- Loop through structured TOC items -->
       <li v-for="item in structuredItems" :key="item.id" class="ml-0">
         <!-- Section Title (H2/H3) - Using Headless UI Disclosure -->
-        <Disclosure v-if="item.isSection" :defaultOpen="expandedSections[item.id]" as="div" v-slot="{ open }">
+        <Disclosure v-if="item.isSection" v-slot="{ open }" :default-open="expandedSections[item.id]" as="div">
           <DisclosureButton
             :id="`toc-section-${item.id}`"
             class="flex items-center hover:cursor-pointer justify-between w-full text-left text-sm transition-colors duration-150 focus:outline-none py-2 px-1 rounded hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -50,7 +50,6 @@
                   <NuxtLink
                     :id="`toc-item-${topic.id}`"
                     :to="`#${topic.id}`"
-                    @click.prevent="$emit('navigate', topic.id)"
                     class="block text-sm hover:underline transition-colors duration-150 break-words py-1 px-1 rounded"
                     :class="[
                       'hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800/50',
@@ -59,6 +58,7 @@
                         : 'text-gray-500 dark:text-gray-400',
                       'pl-2',
                     ]"
+                    @click.prevent="$emit('navigate', topic.id)"
                   >
                     {{ topic.text }}
                   </NuxtLink>
@@ -101,8 +101,7 @@ const props = defineProps<{
 
 // Emits definition for navigation
 const emit = defineEmits<{
-  (e: 'navigate', id: string): void;
-  (e: 'activeHeadingChange', id: string): void;
+  (e: 'navigate' | 'activeHeadingChange', id: string): void;
 }>();
 
 // Refs

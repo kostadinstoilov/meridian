@@ -3,7 +3,7 @@ interface LogEntry {
   level: 'debug' | 'info' | 'warn' | 'error';
   message: string;
   timestamp: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   error?: {
     message: string;
     stack?: string;
@@ -13,20 +13,20 @@ interface LogEntry {
 
 // Basic logger class
 export class Logger {
-  private baseContext: Record<string, any>;
+  private baseContext: Record<string, unknown>;
 
-  constructor(baseContext: Record<string, any> = {}) {
+  constructor(baseContext: Record<string, unknown> = {}) {
     // Clone the context to prevent mutation issues if the source object changes
     this.baseContext = { ...baseContext };
   }
 
   // Method to create a "child" logger with additional context
-  child(additionalContext: Record<string, any>): Logger {
+  child(additionalContext: Record<string, unknown>): Logger {
     return new Logger({ ...this.baseContext, ...additionalContext });
   }
 
   // Central logging function
-  private log(level: LogEntry['level'], message: string, context?: Record<string, any>, error?: Error) {
+  private log(level: LogEntry['level'], message: string, context?: Record<string, unknown>, error?: Error) {
     const entry: LogEntry = {
       level,
       message,
@@ -50,19 +50,19 @@ export class Logger {
   }
 
   // Convenience methods for different levels
-  debug(message: string, context?: Record<string, any>) {
+  debug(message: string, context?: Record<string, unknown>) {
     this.log('debug', message, context);
   }
 
-  info(message: string, context?: Record<string, any>) {
+  info(message: string, context?: Record<string, unknown>) {
     this.log('info', message, context);
   }
 
-  warn(message: string, context?: Record<string, any>, error?: Error) {
+  warn(message: string, context?: Record<string, unknown>, error?: Error) {
     this.log('warn', message, context, error);
   }
 
-  error(message: string, context?: Record<string, any>, error?: Error) {
+  error(message: string, context?: Record<string, unknown>, error?: Error) {
     this.log('error', message, context, error);
   }
 }

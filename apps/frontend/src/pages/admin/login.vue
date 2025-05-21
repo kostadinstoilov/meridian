@@ -23,6 +23,7 @@ async function login(event: Event) {
     });
     await navigateTo('/admin', { external: true });
   } catch (error) {
+    console.error('Failed to login', error);
     errorMessage.value = 'Invalid username or password';
   }
 }
@@ -30,7 +31,7 @@ async function login(event: Event) {
 
 <template>
   <div class="flex flex-col items-center justify-center h-screen py-12">
-    <form @submit.prevent="login" class="flex flex-col justify-center gap-4 items-center border p-4">
+    <form class="flex flex-col justify-center gap-4 items-center border p-4" @submit.prevent="login">
       <input type="text" name="username" placeholder="username" class="border border-black p-1" />
       <input type="password" name="password" placeholder="password" class="border border-black p-1" />
       <p v-if="errorMessage" class="text-red-500">{{ errorMessage }}</p>

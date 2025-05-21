@@ -26,7 +26,7 @@ export default defineEventHandler(async event => {
     throw createError({ statusCode: 500, statusMessage: 'Failed to add source' });
   }
 
-  const config = useRuntimeConfig();
+  // const config = useRuntimeConfig();
 
   // try {
   //   await fetch(`${config.public.WORKER_API}/do/admin/initialize-dos`, {

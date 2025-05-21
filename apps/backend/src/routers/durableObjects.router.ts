@@ -1,11 +1,11 @@
-import { Hono } from 'hono';
-import { HonoEnv } from '../app';
-import { $articles, $sources, eq, isNull } from '@meridian/database';
-import { hasValidAuthToken, getDb } from '../lib/utils';
-import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import { tryCatchAsync } from '../lib/tryCatchAsync';
+import { $articles, $sources, eq, isNull } from '@meridian/database';
+import { Hono } from 'hono';
+import { z } from 'zod';
+import type { HonoEnv } from '../app';
 import { Logger } from '../lib/logger';
+import { tryCatchAsync } from '../lib/tryCatchAsync';
+import { getDb, hasValidAuthToken } from '../lib/utils';
 
 const logger = new Logger({ router: 'durable-objects' });
 
@@ -27,7 +27,7 @@ const route = new Hono<HonoEnv>()
       // reconstruct path for the DO
       const url = new URL(c.req.url);
       const pathParts = url.pathname.split('/');
-      const doPath = '/' + pathParts.slice(4).join('/');
+      const doPath = `/${pathParts.slice(4).join('/')}`;
       const doUrl = new URL(doPath + url.search, 'http://do');
 
       const doRequest = new Request(doUrl.toString(), c.req.raw);

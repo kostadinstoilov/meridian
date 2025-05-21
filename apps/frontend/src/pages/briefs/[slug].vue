@@ -108,7 +108,7 @@ useSeoMeta({
         </header>
 
         <!-- Mobile TOC (Only visible on small screens) -->
-        <div class="xl:hidden mb-8" v-if="tocItems.length > 0">
+        <div v-if="tocItems.length > 0" class="xl:hidden mb-8">
           <div
             ref="mobileTocRef"
             :class="[
@@ -117,8 +117,8 @@ useSeoMeta({
             ]"
           >
             <button
-              @click="mobileMenuOpen = !mobileMenuOpen"
               class="w-full flex items-center justify-between px-6 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md transition-colors duration-200"
+              @click="mobileMenuOpen = !mobileMenuOpen"
             >
               <span>{{ currentSectionName }}</span>
               <svg
@@ -233,9 +233,9 @@ useSeoMeta({
     >
       <button
         v-show="showBackToTop"
-        @click="scrollToTop()"
         class="fixed bottom-8 z-50 border border-gray-200 dark:border-gray-950 hover:cursor-pointer right-[max(2rem,calc((100%-68rem)/2))] p-2 rounded-full bg-gray-100 dark:bg-gray-900 text-black dark:text-gray-100 shadow-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors duration-200"
         aria-label="Back to top"
+        @click="scrollToTop()"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
           <path
