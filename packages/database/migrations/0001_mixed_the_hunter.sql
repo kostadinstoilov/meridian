@@ -1,23 +1,13 @@
-CREATE TYPE "public"."article_completeness" AS ENUM('COMPLETE', 'PARTIAL_USEFUL', 'PARTIAL_USELESS');--> statement-breakpoint
-CREATE TYPE "public"."article_content_quality" AS ENUM('OK', 'LOW_QUALITY', 'JUNK');--> statement-breakpoint
-CREATE TYPE "public"."article_status" AS ENUM('PENDING_FETCH', 'CONTENT_FETCHED', 'PROCESSED', 'SKIPPED_PDF', 'FETCH_FAILED', 'RENDER_FAILED', 'AI_ANALYSIS_FAILED', 'EMBEDDING_FAILED', 'R2_UPLOAD_FAILED');--> statement-breakpoint
-CREATE TABLE "articles" (
-	"id" serial PRIMARY KEY NOT NULL,
+CREATE TYPE "public"."article_status" AS ENUM('PENDING_FETCH', 'CONTENT_FETCHED', 'PROCESSED', 'SKIPPED_PDF', 'FETCH_FAILED', 'RENDER_FAILED', 'EMBEDDING_FAILED', 'R2_UPLOAD_FAILED', 'SKIPPED_TOO_OLD');--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "articles" (
+	"id" bigserial PRIMARY KEY NOT NULL,
 	"title" text NOT NULL,
 	"url" text NOT NULL,
 	"publish_date" timestamp,
 	"status" "article_status" DEFAULT 'PENDING_FETCH',
 	"content_file_key" text,
-	"language" text,
-	"primary_location" text,
-	"completeness" "article_completeness",
-	"content_quality" "article_content_quality",
+	"word_count" integer,
 	"used_browser" boolean,
-	"event_summary_points" jsonb,
-	"thematic_keywords" jsonb,
-	"topic_tags" jsonb,
-	"key_entities" jsonb,
-	"content_focus" jsonb,
 	"embedding" vector(384),
 	"fail_reason" text,
 	"source_id" integer NOT NULL,
@@ -26,14 +16,14 @@ CREATE TABLE "articles" (
 	CONSTRAINT "articles_url_unique" UNIQUE("url")
 );
 --> statement-breakpoint
-CREATE TABLE "newsletter" (
+CREATE TABLE IF NOT EXISTS "newsletter" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"email" text NOT NULL,
 	"created_at" timestamp DEFAULT CURRENT_TIMESTAMP,
 	CONSTRAINT "newsletter_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
-CREATE TABLE "reports" (
+CREATE TABLE IF NOT EXISTS "reports" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"title" text NOT NULL,
 	"content" text NOT NULL,
@@ -47,7 +37,7 @@ CREATE TABLE "reports" (
 	"created_at" timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "sources" (
+CREATE TABLE IF NOT EXISTS "sources" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"url" text NOT NULL,
 	"name" text NOT NULL,
@@ -55,6 +45,7 @@ CREATE TABLE "sources" (
 	"paywall" boolean DEFAULT false NOT NULL,
 	"category" text NOT NULL,
 	"last_checked" timestamp,
+	"do_initialized_at" timestamp,
 	CONSTRAINT "sources_url_unique" UNIQUE("url")
 );
 --> statement-breakpoint

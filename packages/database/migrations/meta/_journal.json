@@ -12,29 +12,8 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1745506132997,
-      "tag": "0001_certain_scream",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1745603176611,
-      "tag": "0002_curious_starhawk",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1746160785265,
-      "tag": "0003_nervous_moira_mactaggert",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1747638538085,
-      "tag": "0004_milky_eddie_brock",
+      "when": 1747801637668,
+      "tag": "0001_mixed_the_hunter",
       "breakpoints": true
     }
   ]

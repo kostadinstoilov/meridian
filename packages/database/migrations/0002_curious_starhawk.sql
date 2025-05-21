@@ -1,1 +1,0 @@
-ALTER TABLE "sources" ADD COLUMN "do_initialized_at" timestamp;

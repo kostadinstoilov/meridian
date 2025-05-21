@@ -1,4 +1,16 @@
-import { boolean, index, integer, jsonb, pgEnum, pgTable, serial, text, timestamp, vector } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  vector,
+  bigserial,
+} from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 /**
@@ -33,7 +45,7 @@ export const $sources = pgTable('sources', {
 export const $articles = pgTable(
   'articles',
   {
-    id: serial('id').primaryKey(),
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
 
     title: text('title').notNull(),
     url: text('url').notNull().unique(),

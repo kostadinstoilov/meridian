@@ -1,5 +1,5 @@
 {
-  "id": "66fd2b44-3751-4846-8285-590318d430ab",
+  "id": "df94e400-85b7-4044-8eb9-9a74ee8cd7da",
   "prevId": "558fb55b-0e9b-4a90-b83b-7add24c77c0b",
   "version": "7",
   "dialect": "postgresql",
@@ -10,7 +10,7 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "serial",
+          "type": "bigserial",
           "primaryKey": true,
           "notNull": true
         },
@@ -46,65 +46,15 @@
           "primaryKey": false,
           "notNull": false
         },
-        "language": {
-          "name": "language",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "primary_location": {
-          "name": "primary_location",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "completeness": {
-          "name": "completeness",
-          "type": "article_completeness",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "content_quality": {
-          "name": "content_quality",
-          "type": "article_content_quality",
-          "typeSchema": "public",
+        "word_count": {
+          "name": "word_count",
+          "type": "integer",
           "primaryKey": false,
           "notNull": false
         },
         "used_browser": {
           "name": "used_browser",
           "type": "boolean",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "event_summary_points": {
-          "name": "event_summary_points",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "thematic_keywords": {
-          "name": "thematic_keywords",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "topic_tags": {
-          "name": "topic_tags",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "key_entities": {
-          "name": "key_entities",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "content_focus": {
-          "name": "content_focus",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -354,6 +304,12 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
+        },
+        "do_initialized_at": {
+          "name": "do_initialized_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -374,24 +330,6 @@
     }
   },
   "enums": {
-    "public.article_completeness": {
-      "name": "article_completeness",
-      "schema": "public",
-      "values": [
-        "COMPLETE",
-        "PARTIAL_USEFUL",
-        "PARTIAL_USELESS"
-      ]
-    },
-    "public.article_content_quality": {
-      "name": "article_content_quality",
-      "schema": "public",
-      "values": [
-        "OK",
-        "LOW_QUALITY",
-        "JUNK"
-      ]
-    },
     "public.article_status": {
       "name": "article_status",
       "schema": "public",
@@ -402,9 +340,9 @@
         "SKIPPED_PDF",
         "FETCH_FAILED",
         "RENDER_FAILED",
-        "AI_ANALYSIS_FAILED",
         "EMBEDDING_FAILED",
-        "R2_UPLOAD_FAILED"
+        "R2_UPLOAD_FAILED",
+        "SKIPPED_TOO_OLD"
       ]
     }
   },

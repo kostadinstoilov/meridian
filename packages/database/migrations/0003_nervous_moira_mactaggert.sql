@@ -1,1 +1,0 @@
-ALTER TYPE "public"."article_status" ADD VALUE 'SKIPPED_TOO_OLD';
