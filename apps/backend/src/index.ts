@@ -58,23 +58,36 @@ export default {
       return;
     }
 
-    const workflowResult = await startProcessArticleWorkflow(env, { articles_id: articlesToProcess });
-    if (workflowResult.isErr()) {
-      batchLogger.error(
-        'Failed to trigger ProcessArticles Workflow',
-        { error_message: workflowResult.error.message },
-        workflowResult.error
-      );
-      // Retry the entire batch if Workflow creation failed (cautious with retries if the failure is persistent)
-      batch.retryAll({ delaySeconds: 30 }); // Retry after 30 seconds
-      return;
+    // Process articles in chunks of 96
+    const CHUNK_SIZE = 96;
+    const articleChunks = [];
+    for (let i = 0; i < articlesToProcess.length; i += CHUNK_SIZE) {
+      articleChunks.push(articlesToProcess.slice(i, i + CHUNK_SIZE));
     }
 
-    batchLogger.info('Successfully triggered ProcessArticles Workflow', {
-      workflow_id: workflowResult.value.id,
-      article_count: articlesToProcess.length,
-    });
-    batch.ackAll(); // Acknowledge the entire batch now that the Workflow has taken over
+    batchLogger.info('Split articles into chunks', { chunk_count: articleChunks.length });
+
+    // Process each chunk sequentially
+    for (const chunk of articleChunks) {
+      const workflowResult = await startProcessArticleWorkflow(env, { articles_id: chunk });
+      if (workflowResult.isErr()) {
+        batchLogger.error(
+          'Failed to trigger ProcessArticles Workflow',
+          { error_message: workflowResult.error.message, chunk_size: chunk.length },
+          workflowResult.error
+        );
+        // Retry the entire batch if Workflow creation failed
+        batch.retryAll({ delaySeconds: 30 }); // Retry after 30 seconds
+        return;
+      }
+
+      batchLogger.info('Successfully triggered ProcessArticles Workflow for chunk', {
+        workflow_id: workflowResult.value.id,
+        chunk_size: chunk.length,
+      });
+    }
+
+    batch.ackAll(); // Acknowledge the entire batch after all chunks are processed
   },
 } satisfies ExportedHandler<Env>;
 
