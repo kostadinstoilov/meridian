@@ -1,16 +1,16 @@
 import app from './app';
-import { SourceScraperDO } from './durable_objects/sourceScraperDO';
+import { DataSourceIngestorDO } from './durable_objects/dataSourceIngestorDO';
 import { Logger } from './lib/logger';
-import { startProcessArticleWorkflow } from './workflows/processArticles.workflow';
+import { type ProcessArticlesParams, startProcessArticleWorkflow } from './workflows/processIngestedItem.workflow';
 
-type ArticleQueueMessage = { articles_id: number[] };
+type ArticleQueueMessage = { ingested_item_ids: number[] };
 
 export type Env = {
   // Bindings
   ARTICLES_BUCKET: R2Bucket;
   ARTICLE_PROCESSING_QUEUE: Queue<ArticleQueueMessage>;
-  SOURCE_SCRAPER: DurableObjectNamespace<SourceScraperDO>;
-  PROCESS_ARTICLES: Workflow;
+  DATA_SOURCE_INGESTOR: DurableObjectNamespace<DataSourceIngestorDO>;
+  PROCESS_ARTICLES: Workflow<ProcessArticlesParams>;
   HYPERDRIVE: Hyperdrive;
 
   // Secrets
@@ -42,10 +42,10 @@ export default {
 
     const articlesToProcess: number[] = [];
     for (const message of batch.messages) {
-      const { articles_id } = message.body as ArticleQueueMessage;
-      batchLogger.debug('Processing message', { message_id: message.id, article_count: articles_id.length });
+      const { ingested_item_ids } = message.body as ArticleQueueMessage;
+      batchLogger.debug('Processing message', { message_id: message.id, article_count: ingested_item_ids.length });
 
-      for (const id of articles_id) {
+      for (const id of ingested_item_ids) {
         articlesToProcess.push(id);
       }
     }
@@ -69,7 +69,7 @@ export default {
 
     // Process each chunk sequentially
     for (const chunk of articleChunks) {
-      const workflowResult = await startProcessArticleWorkflow(env, { articles_id: chunk });
+      const workflowResult = await startProcessArticleWorkflow(env, { ingested_item_ids: chunk });
       if (workflowResult.isErr()) {
         batchLogger.error(
           'Failed to trigger ProcessArticles Workflow',
@@ -91,5 +91,5 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-export { SourceScraperDO };
-export { ProcessArticles } from './workflows/processArticles.workflow';
+export { DataSourceIngestorDO };
+export { ProcessIngestedItemWorkflow } from './workflows/processIngestedItem.workflow';

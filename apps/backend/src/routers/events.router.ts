@@ -1,4 +1,4 @@
-import { $articles, $sources, and, eq, gte, isNotNull, lte, not } from '@meridian/database';
+import { $data_sources, $ingested_items, and, eq, gte, isNotNull, lte, not } from '@meridian/database';
 import { Hono } from 'hono';
 import type { HonoEnv } from '../app';
 import { getDb, hasValidAuthToken } from '../lib/utils';
@@ -34,25 +34,25 @@ const route = new Hono<HonoEnv>().get('/', async c => {
 
   const db = getDb(c.env.HYPERDRIVE);
   const [allSources, events] = await Promise.all([
-    db.select({ id: $sources.id, name: $sources.name }).from($sources),
+    db.select({ id: $data_sources.id, name: $data_sources.name }).from($data_sources),
     db
       .select({
-        id: $articles.id,
-        sourceId: $articles.sourceId,
-        url: $articles.url,
-        title: $articles.title,
-        publishDate: $articles.publishDate,
-        contentFileKey: $articles.contentFileKey,
-        embedding: $articles.embedding,
-        createdAt: $articles.createdAt,
+        id: $ingested_items.id,
+        sourceId: $ingested_items.data_source_id,
+        url: $ingested_items.url_to_original,
+        title: $ingested_items.display_title,
+        publishDate: $ingested_items.published_at,
+        contentFileKey: $ingested_items.raw_data_r2_key,
+        embedding: $ingested_items.embedding,
+        createdAt: $ingested_items.ingested_at,
       })
-      .from($articles)
+      .from($ingested_items)
       .where(
         and(
-          isNotNull($articles.embedding),
-          gte($articles.publishDate, startDate),
-          lte($articles.publishDate, endDate),
-          isNotNull($articles.processedAt)
+          isNotNull($ingested_items.embedding),
+          gte($ingested_items.published_at, startDate),
+          lte($ingested_items.published_at, endDate),
+          isNotNull($ingested_items.processed_at)
         )
       ),
   ]);

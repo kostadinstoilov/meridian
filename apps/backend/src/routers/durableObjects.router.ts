@@ -1,5 +1,5 @@
 import { zValidator } from '@hono/zod-validator';
-import { $articles, $sources, eq, isNull } from '@meridian/database';
+import { $data_sources, $ingested_items, eq, isNull } from '@meridian/database';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { HonoEnv } from '../app';
@@ -21,8 +21,8 @@ const route = new Hono<HonoEnv>()
     ),
     async c => {
       const { sourceId } = c.req.valid('param');
-      const doId = c.env.SOURCE_SCRAPER.idFromName(decodeURIComponent(sourceId));
-      const stub = c.env.SOURCE_SCRAPER.get(doId);
+      const doId = c.env.DATA_SOURCE_INGESTOR.idFromName(decodeURIComponent(sourceId));
+      const stub = c.env.DATA_SOURCE_INGESTOR.get(doId);
 
       // reconstruct path for the DO
       const url = new URL(c.req.url);
@@ -56,8 +56,8 @@ const route = new Hono<HonoEnv>()
 
       // Get the source first
       const sourceResult = await tryCatchAsync(
-        db.query.$sources.findFirst({
-          where: eq($sources.id, Number(sourceId)),
+        db.query.$data_sources.findFirst({
+          where: eq($data_sources.id, Number(sourceId)),
         })
       );
 
@@ -73,23 +73,25 @@ const route = new Hono<HonoEnv>()
       }
 
       // Initialize the DO
-      const doId = c.env.SOURCE_SCRAPER.idFromName(source.url);
-      const stub = c.env.SOURCE_SCRAPER.get(doId);
+      const doId = c.env.DATA_SOURCE_INGESTOR.idFromName(source.config.config.url);
+      const stub = c.env.DATA_SOURCE_INGESTOR.get(doId);
 
       const initResult = await tryCatchAsync(
         stub.initialize({
           id: source.id,
-          url: source.url,
-          scrape_frequency: source.scrape_frequency,
+          source_type: source.source_type,
+          config: source.config,
+          config_version_hash: source.config_version_hash,
+          scrape_frequency_tier: source.scrape_frequency_minutes,
         })
       );
       if (initResult.isErr()) {
         const error = initResult.error instanceof Error ? initResult.error : new Error(String(initResult.error));
-        initLogger.error('Failed to initialize source DO', { sourceId, url: source.url }, error);
+        initLogger.error('Failed to initialize source DO', { sourceId, url: source.config.config.url }, error);
         return c.json({ error: 'Failed to initialize source DO' }, 500);
       }
 
-      initLogger.info('Successfully initialized source DO', { sourceId, url: source.url });
+      initLogger.info('Successfully initialized source DO', { sourceId, url: source.config.config.url });
       return c.json({ success: true });
     }
   )
@@ -111,12 +113,14 @@ const route = new Hono<HonoEnv>()
     const allSourcesResult = await tryCatchAsync(
       db
         .select({
-          id: $sources.id,
-          url: $sources.url,
-          scrape_frequency: $sources.scrape_frequency,
+          id: $data_sources.id,
+          source_type: $data_sources.source_type,
+          config: $data_sources.config,
+          config_version_hash: $data_sources.config_version_hash,
+          scrape_frequency_tier: $data_sources.scrape_frequency_minutes,
         })
-        .from($sources)
-        .where(isNull($sources.do_initialized_at))
+        .from($data_sources)
+        .where(isNull($data_sources.do_initialized_at))
     );
     if (allSourcesResult.isErr()) {
       const error =
@@ -145,9 +149,9 @@ const route = new Hono<HonoEnv>()
 
       const batchResults = await Promise.all(
         batch.map(async source => {
-          const sourceLogger = initLogger.child({ source_id: source.id, url: source.url });
-          const doId = c.env.SOURCE_SCRAPER.idFromName(source.url);
-          const stub = c.env.SOURCE_SCRAPER.get(doId);
+          const sourceLogger = initLogger.child({ source_id: source.id, url: source.config.config.url });
+          const doId = c.env.DATA_SOURCE_INGESTOR.idFromName(source.config.config.url);
+          const stub = c.env.DATA_SOURCE_INGESTOR.get(doId);
 
           sourceLogger.debug('Initializing DO');
           const result = await tryCatchAsync(stub.initialize(source));
@@ -197,8 +201,8 @@ const route = new Hono<HonoEnv>()
 
       // Get the source first to get its URL
       const sourceResult = await tryCatchAsync(
-        db.query.$sources.findFirst({
-          where: eq($sources.id, Number(sourceId)),
+        db.query.$data_sources.findFirst({
+          where: eq($data_sources.id, Number(sourceId)),
         })
       );
 
@@ -214,8 +218,8 @@ const route = new Hono<HonoEnv>()
       }
 
       // Delete the durable object first
-      const doId = c.env.SOURCE_SCRAPER.idFromName(source.url);
-      const stub = c.env.SOURCE_SCRAPER.get(doId);
+      const doId = c.env.DATA_SOURCE_INGESTOR.idFromName(source.config.config.url);
+      const stub = c.env.DATA_SOURCE_INGESTOR.get(doId);
 
       const deleteResult = await tryCatchAsync(
         stub.fetch('http://do/delete', {
@@ -224,13 +228,15 @@ const route = new Hono<HonoEnv>()
       );
       if (deleteResult.isErr()) {
         const error = deleteResult.error instanceof Error ? deleteResult.error : new Error(String(deleteResult.error));
-        deleteLogger.error('Failed to delete source DO', { sourceId, url: source.url }, error);
+        deleteLogger.error('Failed to delete source DO', { sourceId, url: source.config.config.url }, error);
         return c.json({ error: 'Failed to delete source DO' }, 500);
       }
 
       // Then delete from database
       // delete the articles first
-      const articlesResult = await tryCatchAsync(db.delete($articles).where(eq($articles.sourceId, Number(sourceId))));
+      const articlesResult = await tryCatchAsync(
+        db.delete($ingested_items).where(eq($ingested_items.data_source_id, Number(sourceId)))
+      );
       if (articlesResult.isErr()) {
         const error =
           articlesResult.error instanceof Error ? articlesResult.error : new Error(String(articlesResult.error));
@@ -238,7 +244,9 @@ const route = new Hono<HonoEnv>()
         return c.json({ error: 'Failed to delete articles' }, 500);
       }
 
-      const dbDeleteResult = await tryCatchAsync(db.delete($sources).where(eq($sources.id, Number(sourceId))));
+      const dbDeleteResult = await tryCatchAsync(
+        db.delete($data_sources).where(eq($data_sources.id, Number(sourceId)))
+      );
       if (dbDeleteResult.isErr()) {
         const error =
           dbDeleteResult.error instanceof Error ? dbDeleteResult.error : new Error(String(dbDeleteResult.error));
@@ -246,7 +254,7 @@ const route = new Hono<HonoEnv>()
         return c.json({ error: 'Failed to delete source from database' }, 500);
       }
 
-      deleteLogger.info('Successfully deleted source', { sourceId, url: source.url });
+      deleteLogger.info('Successfully deleted source', { sourceId, url: source.config.config.url });
       return c.json({ success: true });
     }
   );
