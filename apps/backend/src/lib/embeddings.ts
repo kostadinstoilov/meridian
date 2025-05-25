@@ -13,7 +13,7 @@ export async function createEmbeddings(env: Env, texts: string[]) {
       method: 'POST',
       body: JSON.stringify({ texts }),
       headers: {
-        'X-API-Token': env.MERIDIAN_ML_SERVICE_API_KEY,
+        Authorization: `Bearer ${env.MERIDIAN_ML_SERVICE_API_KEY}`,
         'Content-Type': 'application/json',
       },
     })

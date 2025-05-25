@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-import { $data_sources, $ingested_items, eq } from '@meridian/database';
+import { $data_sources, $ingested_items, DataSourceConfigWrapper, eq } from '@meridian/database';
 import { type Result, ResultAsync, err, ok } from 'neverthrow';
 import { z } from 'zod';
 import type { Env } from '../index';
@@ -23,7 +23,7 @@ const RssSourceConfigV1 = z.object({
 const DataSourceStateSchema = z.object({
   dataSourceId: z.number().int().positive(),
   sourceType: z.string(),
-  config: RssSourceConfigV1, // Assuming RSS for now
+  config: DataSourceConfigWrapper, // Assuming RSS for now
   configVersionHash: z.string().nullable(),
   scrapeFrequencyTier: z.number().int().positive(),
   lastChecked: z.number().nullable(),
@@ -159,22 +159,16 @@ export class DataSourceIngestorDO extends DurableObject<Env> {
     }
 
     // Parse the config JSONB using the appropriate Zod schema (assuming RSS for now)
-    let parsedConfig: z.infer<typeof RssSourceConfigV1>;
-    if (dataSourceData.source_type === 'RSS') {
-      const configParseResult = RssSourceConfigV1.safeParse(dataSourceData.config);
-      if (!configParseResult.success) {
-        logger.error('Failed to parse RSS config', { config: dataSourceData.config, error: configParseResult.error });
-        throw new Error(`Invalid RSS config: ${configParseResult.error.message}`);
-      }
-      parsedConfig = configParseResult.data;
-    } else {
-      throw new Error(`Unsupported source type: ${dataSourceData.source_type}`);
+    const parsedConfig = DataSourceConfigWrapper.safeParse(dataSourceData.config);
+    if (!parsedConfig.success) {
+      logger.error('Failed to parse RSS config', { config: dataSourceData.config, error: parsedConfig.error });
+      throw new Error(`Invalid RSS config: ${parsedConfig.error.message}`);
     }
 
     const state: DataSourceState = {
       dataSourceId: dataSourceData.id,
       sourceType: dataSourceData.source_type,
-      config: parsedConfig,
+      config: parsedConfig.data,
       configVersionHash: dataSourceData.config_version_hash,
       scrapeFrequencyTier: dataSourceData.scrape_frequency_tier,
       lastChecked: null,
@@ -292,26 +286,20 @@ export class DataSourceIngestorDO extends DurableObject<Env> {
         });
 
         // Parse the new config using the appropriate Zod schema
-        let newParsedConfig: z.infer<typeof RssSourceConfigV1>;
-        if (currentState.sourceType === 'RSS') {
-          const configParseResult = RssSourceConfigV1.safeParse(dbConfig.config);
-          if (!configParseResult.success) {
-            configCheckLogger.error('Failed to parse new RSS config', {
-              config: dbConfig.config,
-              error: configParseResult.error,
-            });
-            return;
-          }
-          newParsedConfig = configParseResult.data;
-        } else {
-          configCheckLogger.error('Unsupported source type for config update', { sourceType: currentState.sourceType });
+
+        const newParsedConfig = DataSourceConfigWrapper.safeParse(dbConfig.config);
+        if (!newParsedConfig.success) {
+          configCheckLogger.error('Failed to parse new RSS config', {
+            config: dbConfig.config,
+            error: newParsedConfig.error,
+          });
           return;
         }
 
         // Update internal state with new config
         currentState = {
           ...currentState,
-          config: newParsedConfig,
+          config: newParsedConfig.data,
           configVersionHash: dbConfig.config_version_hash,
         };
 
@@ -363,7 +351,7 @@ export class DataSourceIngestorDO extends DurableObject<Env> {
     const fetchResult = await attemptWithRetries(
       async () => {
         const respResult = await tryCatchAsync(
-          fetch(config.url, {
+          fetch(config.config.url, {
             method: 'GET',
             headers: {
               'User-Agent': userAgents[Math.floor(Math.random() * userAgents.length)],

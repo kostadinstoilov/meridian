@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+// import { ingestedItemStatusEnum } from '@meridian/database';
 definePageMeta({ layout: 'admin' });
 
 const route = useRoute();
@@ -12,7 +13,7 @@ const qualityFilter = ref<string>('all');
 const sortBy = ref<string>('createdAt');
 const sortOrder = ref<'asc' | 'desc'>('desc');
 
-const statuses = ['PENDING_FETCH', 'CONTENT_FETCHED', 'PROCESSED', 'FETCH_FAILED', 'RENDER_FAILED', 'PROCESS_FAILED'];
+const statuses = ['PENDING_PROCESSING', 'PROCESSED', 'FETCH_FAILED', 'RENDER_FAILED', 'PROCESS_FAILED'];
 const completenessLevels = ['COMPLETE', 'PARTIAL_USEFUL', 'PARTIAL_USELESS'];
 const qualityLevels = ['OK', 'LOW_QUALITY', 'JUNK'];
 
@@ -64,8 +65,7 @@ const getStatusColor = (status: Article['status']) => {
   switch (status) {
     case 'PROCESSED':
       return 'text-green-600';
-    case 'PENDING_FETCH':
-    case 'CONTENT_FETCHED':
+    case 'PENDING_PROCESSING':
       return 'text-yellow-600';
     default:
       return 'text-red-600';

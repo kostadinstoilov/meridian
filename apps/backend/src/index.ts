@@ -3,14 +3,12 @@ import { DataSourceIngestorDO } from './durable_objects/dataSourceIngestorDO';
 import { Logger } from './lib/logger';
 import { type ProcessArticlesParams, startProcessArticleWorkflow } from './workflows/processIngestedItem.workflow';
 
-type ArticleQueueMessage = { ingested_item_ids: number[] };
-
 export type Env = {
   // Bindings
   ARTICLES_BUCKET: R2Bucket;
-  ARTICLE_PROCESSING_QUEUE: Queue<ArticleQueueMessage>;
+  ARTICLE_PROCESSING_QUEUE: Queue<ProcessArticlesParams>;
   DATA_SOURCE_INGESTOR: DurableObjectNamespace<DataSourceIngestorDO>;
-  PROCESS_ARTICLES: Workflow<ProcessArticlesParams>;
+  PROCESS_INGESTED_ITEM: Workflow<ProcessArticlesParams>;
   HYPERDRIVE: Hyperdrive;
 
   // Secrets
@@ -42,7 +40,7 @@ export default {
 
     const articlesToProcess: number[] = [];
     for (const message of batch.messages) {
-      const { ingested_item_ids } = message.body as ArticleQueueMessage;
+      const { ingested_item_ids } = message.body as ProcessArticlesParams;
       batchLogger.debug('Processing message', { message_id: message.id, article_count: ingested_item_ids.length });
 
       for (const id of ingested_item_ids) {

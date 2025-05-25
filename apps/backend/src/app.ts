@@ -6,6 +6,7 @@ import eventsRouter from './routers/events.router';
 import openGraph from './routers/openGraph.router';
 import reportsRouter from './routers/reports.router';
 import sourcesRouter from './routers/sources.router';
+import { createEmbeddings } from './lib/embeddings';
 
 export type HonoEnv = { Bindings: Env };
 

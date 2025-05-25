@@ -27,7 +27,6 @@ const overview = computed(() => data.value?.overview);
 const sortKey = ref<keyof Source | ''>('');
 const sortOrder = ref<'asc' | 'desc'>('asc');
 const selectedFrequency = ref<string>('all');
-const selectedCategory = ref<string>('all');
 const showPaywallOnly = ref(false);
 const showErrorsOnly = ref(false);
 const errorThreshold = ref(5);
@@ -64,11 +63,6 @@ const filteredSources = computed(() => {
   // frequency filter
   if (selectedFrequency.value !== 'all') {
     filtered = filtered.filter(source => source.frequency === selectedFrequency.value);
-  }
-
-  // category filter
-  if (selectedCategory.value !== 'all') {
-    filtered = filtered.filter(source => source.category === selectedCategory.value);
   }
 
   // paywall filter
@@ -284,16 +278,6 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
           <select v-model="selectedFrequency" class="border rounded px-2 py-1.5 text-sm bg-white">
             <option value="all">All</option>
             <option v-for="freq in FREQUENCIES" :key="freq" :value="freq">{{ freq }}</option>
-          </select>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <label class="text-gray-600">Category:</label>
-          <select v-model="selectedCategory" class="border rounded px-2 py-1.5 text-sm bg-white">
-            <option value="all">All</option>
-            <option v-for="cat in [...new Set(sources?.map(s => s.category))]" :key="cat" :value="cat">
-              {{ cat }}
-            </option>
           </select>
         </div>
 

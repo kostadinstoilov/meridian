@@ -27,7 +27,7 @@ export default defineEventHandler(async event => {
 
   // decode slug & get date
   const date = new Date(slug);
-  if (isNaN(date.getTime())) {
+  if (Number.isNaN(date.getTime())) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid slug' });
   }
 

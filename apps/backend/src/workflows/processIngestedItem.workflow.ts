@@ -416,8 +416,9 @@ export class ProcessIngestedItemWorkflow extends WorkflowEntrypoint<Env, Process
  * @returns Result containing either the created workflow or an error
  */
 export async function startProcessArticleWorkflow(env: Env, params: ProcessArticlesParams) {
-  const workflow = await ResultAsync.fromPromise(env.PROCESS_ARTICLES.create({ id: crypto.randomUUID(), params }), e =>
-    e instanceof Error ? e : new Error(String(e))
+  const workflow = await ResultAsync.fromPromise(
+    env.PROCESS_INGESTED_ITEM.create({ id: crypto.randomUUID(), params }),
+    e => (e instanceof Error ? e : new Error(String(e)))
   );
   if (workflow.isErr()) return err(workflow.error);
   return ok(workflow.value);
