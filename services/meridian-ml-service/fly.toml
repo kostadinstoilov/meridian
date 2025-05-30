@@ -30,3 +30,8 @@ primary_region = 'cdg'
    path = "/ping" # or "/"
    protocol = "http"
    port = 8080
+
+[[services.ports]]
+    handlers = ["http"]
+    port = 8080
+    force_https = true  # optional

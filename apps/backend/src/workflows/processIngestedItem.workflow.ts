@@ -252,6 +252,7 @@ export class ProcessIngestedItemWorkflow extends WorkflowEntrypoint<Env, Process
               content_body_text: article.contentBodyText,
               content_body_r2_key: article.contentBodyR2Key,
               embedding: embeddingResult,
+              embedding_text: articleRepresentation,
               status: 'PROCESSED',
               word_count: article.wordCount,
             })
