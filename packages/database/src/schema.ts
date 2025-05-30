@@ -75,6 +75,7 @@ export const $ingested_items = pgTable(
     content_body_text: text('content_body_text'), // inline snippet or full text if small
     word_count: integer('word_count'),
 
+    embedding_text: text('embedding_text'), // text used to generate embedding
     analysis_payload: jsonb('analysis_payload').$type<typeof AnalysisPayloadWrapper>(), // structured LLM analysis
     source_specific_metadata: jsonb('source_specific_metadata'), // small, queryable metadata
 
