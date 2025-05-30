@@ -14,7 +14,11 @@ Tags: [max 5 additional specifics not covered above]
 
 Examples:
 
-INPUT: "Nvidia CEO Jensen Huang Warns Companies to Adopt AI Now\n\nNvidia CEO delivered stark warning to business leaders yesterday, stating companies must integrate AI immediately or face obsolescence. Speaking to Fortune 500 executives, emphasized current AI revolution represents 'once-in-a-lifetime transformation'. Stock surged 180% this year as AI chip demand accelerates."
+INPUT: """
+Nvidia CEO Jensen Huang Warns Companies to Adopt AI Now
+
+Nvidia CEO delivered stark warning to business leaders yesterday, stating companies must integrate AI immediately or face obsolescence. Speaking to Fortune 500 executives, emphasized current AI revolution represents 'once-in-a-lifetime transformation'. Stock surged 180% this year as AI chip demand accelerates.
+"""
 
 OUTPUT:
 Topic: technology
@@ -26,7 +30,11 @@ Source: mainstream
 Entities: [Jensen Huang, Nvidia, Fortune 500]
 Tags: [stock-surge, 180-percent, chip-demand]
 
-INPUT: "Breaking: Emergency Wheat Export Ban by Inner Mongolia Agricultural Ministry\n\nMinistry announced immediate wheat export suspension today, citing food security concerns amid drought. Affects 2.3 million tons scheduled for neighboring provinces. Farmers concerned about revenue losses, traders predict price volatility."
+INPUT: """
+Breaking: Emergency Wheat Export Ban by Inner Mongolia Agricultural Ministry
+
+Ministry announced immediate wheat export suspension today, citing food security concerns amid drought. Affects 2.3 million tons scheduled for neighboring provinces. Farmers concerned about revenue losses, traders predict price volatility.
+"""
 
 OUTPUT:
 Topic: agriculture
@@ -38,11 +46,12 @@ Source: mainstream
 Entities: [Inner Mongolia Agricultural Ministry]
 Tags: [export-ban, drought, 2.3-million-tons, price-volatility]
 
-Classify:
-"""
+INPUT: """"
 # (${title})[${url}]
 
-${text.slice(0, 1000)}
+${text.slice(0, 1500)}...
 """
+
+OUTPUT:
 `.trim();
 }
