@@ -10,15 +10,15 @@
   "compatibility_flags": ["nodejs_compat"],
   "migrations": [
     {
-      "new_sqlite_classes": ["SourceScraperDO"],
+      "new_sqlite_classes": ["DataSourceIngestorDO"],
       "tag": "v1",
     },
   ],
   "durable_objects": {
     "bindings": [
       {
-        "class_name": "SourceScraperDO",
-        "name": "SOURCE_SCRAPER",
+        "class_name": "DataSourceIngestorDO",
+        "name": "DATA_SOURCE_INGESTOR",
       },
     ],
   },
@@ -71,9 +71,9 @@
   ],
   "workflows": [
     {
-      "name": "meridian_process_articles",
-      "binding": "PROCESS_ARTICLES",
-      "class_name": "ProcessArticles",
+      "name": "meridian_process_ingested_item",
+      "binding": "PROCESS_INGESTED_ITEM",
+      "class_name": "ProcessIngestedItemWorkflow",
     },
   ],
   // !!! NOTE !!! : tail workers make workers with durable objects CRASH for now - 30/04/2025

@@ -1,9 +1,9 @@
-import { z } from 'zod';
-import { parseArticle } from './parsers';
 import { err, ok } from 'neverthrow';
-import { userAgents } from './utils';
-import { Env } from '../index';
+import { z } from 'zod';
+import type { Env } from '../index';
+import { parseArticle } from './parsers';
 import { tryCatchAsync } from './tryCatchAsync';
+import { userAgents } from './utils';
 
 /**
  * Schema for validating responses from the Cloudflare Browser Rendering API

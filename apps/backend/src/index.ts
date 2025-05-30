@@ -1,16 +1,14 @@
 import app from './app';
-import { SourceScraperDO } from './durable_objects/sourceScraperDO';
-import { startProcessArticleWorkflow } from './workflows/processArticles.workflow';
+import { DataSourceIngestorDO } from './durable_objects/dataSourceIngestorDO';
 import { Logger } from './lib/logger';
-
-type ArticleQueueMessage = { articles_id: number[] };
+import { type ProcessArticlesParams, startProcessArticleWorkflow } from './workflows/processIngestedItem.workflow';
 
 export type Env = {
   // Bindings
   ARTICLES_BUCKET: R2Bucket;
-  ARTICLE_PROCESSING_QUEUE: Queue<ArticleQueueMessage>;
-  SOURCE_SCRAPER: DurableObjectNamespace<SourceScraperDO>;
-  PROCESS_ARTICLES: Workflow;
+  ARTICLE_PROCESSING_QUEUE: Queue<ProcessArticlesParams>;
+  DATA_SOURCE_INGESTOR: DurableObjectNamespace<DataSourceIngestorDO>;
+  PROCESS_INGESTED_ITEM: Workflow<ProcessArticlesParams>;
   HYPERDRIVE: Hyperdrive;
 
   // Secrets
@@ -42,10 +40,10 @@ export default {
 
     const articlesToProcess: number[] = [];
     for (const message of batch.messages) {
-      const { articles_id } = message.body as ArticleQueueMessage;
-      batchLogger.debug('Processing message', { message_id: message.id, article_count: articles_id.length });
+      const { ingested_item_ids } = message.body as ProcessArticlesParams;
+      batchLogger.debug('Processing message', { message_id: message.id, article_count: ingested_item_ids.length });
 
-      for (const id of articles_id) {
+      for (const id of ingested_item_ids) {
         articlesToProcess.push(id);
       }
     }
@@ -58,25 +56,38 @@ export default {
       return;
     }
 
-    const workflowResult = await startProcessArticleWorkflow(env, { articles_id: articlesToProcess });
-    if (workflowResult.isErr()) {
-      batchLogger.error(
-        'Failed to trigger ProcessArticles Workflow',
-        { error_message: workflowResult.error.message },
-        workflowResult.error
-      );
-      // Retry the entire batch if Workflow creation failed (cautious with retries if the failure is persistent)
-      batch.retryAll({ delaySeconds: 30 }); // Retry after 30 seconds
-      return;
+    // Process articles in chunks of 96
+    const CHUNK_SIZE = 96;
+    const articleChunks = [];
+    for (let i = 0; i < articlesToProcess.length; i += CHUNK_SIZE) {
+      articleChunks.push(articlesToProcess.slice(i, i + CHUNK_SIZE));
     }
 
-    batchLogger.info('Successfully triggered ProcessArticles Workflow', {
-      workflow_id: workflowResult.value.id,
-      article_count: articlesToProcess.length,
-    });
-    batch.ackAll(); // Acknowledge the entire batch now that the Workflow has taken over
+    batchLogger.info('Split articles into chunks', { chunk_count: articleChunks.length });
+
+    // Process each chunk sequentially
+    for (const chunk of articleChunks) {
+      const workflowResult = await startProcessArticleWorkflow(env, { ingested_item_ids: chunk });
+      if (workflowResult.isErr()) {
+        batchLogger.error(
+          'Failed to trigger ProcessArticles Workflow',
+          { error_message: workflowResult.error.message, chunk_size: chunk.length },
+          workflowResult.error
+        );
+        // Retry the entire batch if Workflow creation failed
+        batch.retryAll({ delaySeconds: 30 }); // Retry after 30 seconds
+        return;
+      }
+
+      batchLogger.info('Successfully triggered ProcessArticles Workflow for chunk', {
+        workflow_id: workflowResult.value.id,
+        chunk_size: chunk.length,
+      });
+    }
+
+    batch.ackAll(); // Acknowledge the entire batch after all chunks are processed
   },
 } satisfies ExportedHandler<Env>;
 
-export { SourceScraperDO };
-export { ProcessArticles } from './workflows/processArticles.workflow';
+export { DataSourceIngestorDO };
+export { ProcessIngestedItemWorkflow } from './workflows/processIngestedItem.workflow';

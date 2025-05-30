@@ -54,7 +54,7 @@ const handleChangeEmail = () => {
   <div>
     <div v-if="!hasSubscribed" class="gap-2 text-sm flex flex-col items-center">
       <p>Want this brief in your inbox? Sign up for updates</p>
-      <form @submit.prevent="handleSubmit" class="flex flex-col group max-w-md mx-auto">
+      <form class="flex flex-col group max-w-md mx-auto" @submit.prevent="handleSubmit">
         <div class="flex border border-zinc-300">
           <input
             v-model="email"
@@ -80,7 +80,7 @@ const handleChangeEmail = () => {
     </div>
     <div v-else class="text-center text-sm">
       <p>You're subscribed to our updates!</p>
-      <button @click="handleChangeEmail" class="underline mt-2 text-xs">Change email</button>
+      <button class="underline mt-2 text-xs" @click="handleChangeEmail">Change email</button>
     </div>
   </div>
 </template>

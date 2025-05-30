@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+// import { ingestedItemStatusEnum } from '@meridian/database';
 definePageMeta({ layout: 'admin' });
 
 const route = useRoute();
@@ -12,7 +13,7 @@ const qualityFilter = ref<string>('all');
 const sortBy = ref<string>('createdAt');
 const sortOrder = ref<'asc' | 'desc'>('desc');
 
-const statuses = ['PENDING_FETCH', 'CONTENT_FETCHED', 'PROCESSED', 'FETCH_FAILED', 'RENDER_FAILED', 'PROCESS_FAILED'];
+const statuses = ['PENDING_PROCESSING', 'PROCESSED', 'FETCH_FAILED', 'RENDER_FAILED', 'PROCESS_FAILED'];
 const completenessLevels = ['COMPLETE', 'PARTIAL_USEFUL', 'PARTIAL_USELESS'];
 const qualityLevels = ['OK', 'LOW_QUALITY', 'JUNK'];
 
@@ -48,7 +49,7 @@ const formatDate = (dateStr: string | undefined) => {
     return '-';
   }
   const date = new Date(dateStr);
-  if (isNaN(date.getTime())) {
+  if (Number.isNaN(date.getTime())) {
     return '-';
   }
   const Y = date.getFullYear();
@@ -64,37 +65,10 @@ const getStatusColor = (status: Article['status']) => {
   switch (status) {
     case 'PROCESSED':
       return 'text-green-600';
-    case 'PENDING_FETCH':
-    case 'CONTENT_FETCHED':
+    case 'PENDING_PROCESSING':
       return 'text-yellow-600';
     default:
       return 'text-red-600';
-  }
-};
-
-const getCompletenessColor = (completeness: Article['completeness']) => {
-  switch (completeness) {
-    case 'COMPLETE':
-      return 'text-green-600';
-    case 'PARTIAL_USEFUL':
-      return 'text-yellow-600';
-    case 'PARTIAL_USELESS':
-      return 'text-red-600';
-    default:
-      return 'text-gray-600';
-  }
-};
-
-const getQualityColor = (quality: Article['content_quality']) => {
-  switch (quality) {
-    case 'OK':
-      return 'text-green-600';
-    case 'LOW_QUALITY':
-      return 'text-yellow-600';
-    case 'JUNK':
-      return 'text-red-600';
-    default:
-      return 'text-gray-600';
   }
 };
 
@@ -237,10 +211,6 @@ async function deleteSource() {
               <tr class="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <th class="px-2 py-2 text-left">Title</th>
                 <th class="px-2 py-2 text-left w-24">Status</th>
-                <th class="px-2 py-2 text-left w-24">Complete</th>
-                <th class="px-2 py-2 text-left w-20">Quality</th>
-                <th class="px-2 py-2 text-left w-16">Lang</th>
-                <th class="px-2 py-2 text-left w-32">Location</th>
                 <th class="px-2 py-2 text-left w-32">Published</th>
                 <th class="px-2 py-2 text-left w-32">Processed</th>
               </tr>
@@ -272,18 +242,7 @@ async function deleteSource() {
                     </div>
                   </div>
                 </td>
-                <td class="px-2 py-2">
-                  <span :class="getCompletenessColor(article.completeness)" class="text-xs">{{
-                    article.completeness
-                  }}</span>
-                </td>
-                <td class="px-2 py-2">
-                  <span :class="getQualityColor(article.content_quality)" class="text-xs">{{
-                    article.content_quality
-                  }}</span>
-                </td>
-                <td class="px-2 py-2 text-xs">{{ article.language }}</td>
-                <td class="px-2 py-2 text-xs truncate">{{ article.primary_location || '-' }}</td>
+
                 <td class="px-2 py-2 text-xs">{{ formatDate(article.publishedAt) }}</td>
                 <td class="px-2 py-2 text-xs">{{ formatDate(article.processedAt) }}</td>
               </tr>

@@ -1,4 +1,4 @@
-function throttle<T extends (...args: any[]) => any>(func: T, wait: number) {
+function throttle<T extends (...args: unknown[]) => unknown>(func: T, wait: number) {
   let timeout: ReturnType<typeof setTimeout> | null = null;
   let lastArgs: Parameters<T> | null = null;
 

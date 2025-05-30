@@ -1,47 +1,43 @@
-import { sql, $articles, $sources, and, lte, gte } from '@meridian/database';
+import { sql, $ingested_items, and, gte } from '@meridian/database';
 import { getDB } from '~/server/lib/utils';
 
 export default defineEventHandler(async event => {
   await requireUserSession(event); // require auth
 
   const db = getDB(event);
-  const sources = await db.query.$sources.findMany();
+  const sources = await db.query.$data_sources.findMany();
   if (sources.length === 0) {
     return { overview: null, sources: [] };
   }
 
   // get article stats for last 7 days
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const articleStats = await db.query.$articles.findMany({
-    where: sql`created_at >= ${sevenDaysAgo.toISOString()}`,
+  const articleStats = await db.query.$ingested_items.findMany({
+    where: sql`ingested_at >= ${sevenDaysAgo.toISOString()}`,
     columns: {
-      sourceId: true,
+      data_source_id: true,
       status: true,
-      content_quality: true,
-      createdAt: true,
-      processedAt: true,
+      ingested_at: true,
+      processed_at: true,
     },
   });
 
   // calculate per-source stats
   const sourceStats = sources.map(source => {
-    const sourceArticles = articleStats.filter(a => a.sourceId === source.id);
+    const sourceArticles = articleStats.filter(a => a.data_source_id === source.id);
     const last24hArticles = sourceArticles.filter(
-      a => a.createdAt && new Date(a.createdAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+      a => a.ingested_at && new Date(a.ingested_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
     );
 
     // calculate health metrics
     const totalArticles = sourceArticles.length;
     const processedArticles = sourceArticles.filter(a => a.status === 'PROCESSED');
     const failedArticles = sourceArticles.filter(a => a.status?.endsWith('_FAILED'));
-    const lowQualityArticles = processedArticles.filter(
-      a => a.content_quality === 'LOW_QUALITY' || a.content_quality === 'JUNK'
-    );
 
     // calculate processing time for processed articles
     const processingTimes = processedArticles
       .map(a =>
-        a.processedAt && a.createdAt ? new Date(a.processedAt).getTime() - new Date(a.createdAt).getTime() : null
+        a.processed_at && a.ingested_at ? new Date(a.processed_at).getTime() - new Date(a.ingested_at).getTime() : null
       )
       .filter(time => time !== null);
 
@@ -52,15 +48,14 @@ export default defineEventHandler(async event => {
     return {
       id: source.id,
       name: source.name,
-      url: source.url,
-      category: source.category,
-      paywall: source.paywall,
+      url: source.config.config.url,
+      paywall: source.config.config.rss_paywall,
       frequency:
-        source.scrape_frequency === 1
+        source.scrape_frequency_minutes <= 60
           ? 'Hourly'
-          : source.scrape_frequency === 2
+          : source.scrape_frequency_minutes <= 120
             ? '4 Hours'
-            : source.scrape_frequency === 3
+            : source.scrape_frequency_minutes <= 180
               ? '6 Hours'
               : 'Daily',
       lastChecked: source.lastChecked?.toISOString(),
@@ -72,7 +67,6 @@ export default defineEventHandler(async event => {
       // health metrics
       processSuccessRate: totalArticles ? (processedArticles.length / totalArticles) * 100 : null,
       errorRate: totalArticles ? (failedArticles.length / totalArticles) * 100 : null,
-      lowQualityRate: processedArticles.length ? (lowQualityArticles.length / processedArticles.length) * 100 : null,
       avgProcessingTime,
     };
   });
@@ -83,37 +77,37 @@ export default defineEventHandler(async event => {
 
   const [lastSourceCheck, lastArticleProcessed, lastArticleFetched, todayStats, staleSources] = await Promise.all([
     // get latest source check
-    db.query.$sources.findFirst({
+    db.query.$data_sources.findFirst({
       orderBy: sql`last_checked DESC NULLS LAST`,
       columns: { lastChecked: true },
     }),
     // get latest processed article
-    db.query.$articles.findFirst({
+    db.query.$ingested_items.findFirst({
       where: sql`status = 'PROCESSED'`,
       orderBy: sql`processed_at DESC NULLS LAST`,
-      columns: { processedAt: true },
+      columns: { processed_at: true },
     }),
     // get latest fetched article
-    db.query.$articles.findFirst({
-      orderBy: sql`created_at DESC NULLS LAST`,
-      columns: { createdAt: true },
+    db.query.$ingested_items.findFirst({
+      orderBy: sql`ingested_at DESC NULLS LAST`,
+      columns: { ingested_at: true },
     }),
     // get today's stats
-    db.query.$articles.findMany({
-      where: and(gte($articles.createdAt, startOfToday)),
+    db.query.$ingested_items.findMany({
+      where: and(gte($ingested_items.ingested_at, startOfToday)),
       columns: {
         status: true,
-        createdAt: true,
-        processedAt: true,
+        ingested_at: true,
+        processed_at: true,
       },
     }),
     // get stale sources count
-    db.query.$sources.findMany({
+    db.query.$data_sources.findMany({
       where: sql`(
-        (scrape_frequency = 1 AND last_checked < NOW() - INTERVAL '2 hours') OR
-        (scrape_frequency = 2 AND last_checked < NOW() - INTERVAL '8 hours') OR
-        (scrape_frequency = 3 AND last_checked < NOW() - INTERVAL '12 hours') OR
-        (scrape_frequency = 4 AND last_checked < NOW() - INTERVAL '48 hours')
+        (scrape_frequency_minutes <= 60 AND last_checked < NOW() - INTERVAL '2 hours') OR
+        (scrape_frequency_minutes <= 120 AND last_checked < NOW() - INTERVAL '8 hours') OR
+        (scrape_frequency_minutes <= 180 AND last_checked < NOW() - INTERVAL '12 hours') OR
+        (scrape_frequency_minutes <= 240 AND last_checked < NOW() - INTERVAL '48 hours')
       )`,
       columns: { id: true },
     }),
@@ -121,8 +115,8 @@ export default defineEventHandler(async event => {
 
   const overview = {
     lastSourceCheck: lastSourceCheck?.lastChecked?.toISOString() ?? null,
-    lastArticleProcessed: lastArticleProcessed?.processedAt?.toISOString() ?? null,
-    lastArticleFetched: lastArticleFetched?.createdAt?.toISOString() ?? null,
+    lastArticleProcessed: lastArticleProcessed?.processed_at?.toISOString() ?? null,
+    lastArticleFetched: lastArticleFetched?.ingested_at?.toISOString() ?? null,
     articlesProcessedToday: todayStats.filter(a => a.status === 'PROCESSED').length,
     articlesFetchedToday: todayStats.length,
     errorsToday: todayStats.filter(a => a.status?.endsWith('_FAILED')).length,

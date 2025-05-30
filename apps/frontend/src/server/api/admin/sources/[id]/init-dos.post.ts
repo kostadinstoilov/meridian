@@ -1,18 +1,18 @@
 import { getDB } from '~/server/lib/utils';
-import { $sources, eq } from '@meridian/database';
+import { $data_sources, eq } from '@meridian/database';
 
 export default defineEventHandler(async event => {
   await requireUserSession(event); // require auth
 
   const sourceId = Number(getRouterParam(event, 'id'));
-  if (isNaN(sourceId)) {
+  if (Number.isNaN(sourceId)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid source ID' });
   }
 
   const db = getDB(event);
   const config = useRuntimeConfig();
 
-  const source = await db.query.$sources.findFirst({ where: eq($sources.id, sourceId) });
+  const source = await db.query.$data_sources.findFirst({ where: eq($data_sources.id, sourceId) });
   if (source === undefined) {
     throw createError({ statusCode: 404, statusMessage: 'Source not found' });
   }

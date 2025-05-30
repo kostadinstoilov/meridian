@@ -1,11 +1,11 @@
+import { zValidator } from '@hono/zod-validator';
+import { $data_sources, eq } from '@meridian/database';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { HonoEnv } from '../app';
-import { $sources, eq } from '@meridian/database';
-import { zValidator } from '@hono/zod-validator';
-import { tryCatchAsync } from '../lib/tryCatchAsync';
-import { hasValidAuthToken, getDb } from '../lib/utils';
 import { Logger } from '../lib/logger';
+import { tryCatchAsync } from '../lib/tryCatchAsync';
+import { getDb, hasValidAuthToken } from '../lib/utils';
 
 const logger = new Logger({ router: 'sources' });
 
@@ -31,8 +31,8 @@ const route = new Hono<HonoEnv>().delete(
     const db = getDb(c.env.HYPERDRIVE);
 
     const sourceResult = await tryCatchAsync(
-      db.query.$sources.findFirst({
-        where: eq($sources.id, c.req.valid('param').id),
+      db.query.$data_sources.findFirst({
+        where: eq($data_sources.id, c.req.valid('param').id),
       })
     );
     if (sourceResult.isErr()) {
@@ -47,12 +47,12 @@ const route = new Hono<HonoEnv>().delete(
       return c.json({ error: "Source doesn't exist" }, 404);
     }
 
-    routeLogger.debug('Source found, proceeding with deletion', { source_url: source.url });
-    const doId = c.env.SOURCE_SCRAPER.idFromName(source.url); // Use URL for ID stability
-    const stub = c.env.SOURCE_SCRAPER.get(doId);
+    routeLogger.debug('Source found, proceeding with deletion', { source_url: source.config.config.url });
+    const doId = c.env.DATA_SOURCE_INGESTOR.idFromName(source.config.config.url); // Use URL for ID stability
+    const stub = c.env.DATA_SOURCE_INGESTOR.get(doId);
 
     const deleteResult = await tryCatchAsync(
-      Promise.all([db.delete($sources).where(eq($sources.id, c.req.valid('param').id)), stub.destroy()])
+      Promise.all([db.delete($data_sources).where(eq($data_sources.id, c.req.valid('param').id)), stub.destroy()])
     );
     if (deleteResult.isErr()) {
       const error = deleteResult.error instanceof Error ? deleteResult.error : new Error(String(deleteResult.error));

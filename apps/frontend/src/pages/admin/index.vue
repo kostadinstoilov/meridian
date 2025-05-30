@@ -17,17 +17,16 @@ if (sourcesError.value) {
 }
 
 type Source = NonNullable<typeof data.value>['sources'][number];
-type Overview = NonNullable<typeof data.value>['overview'];
+// type Overview = NonNullable<typeof data.value>['overview'];
 
 const sources = computed(() => data.value?.sources ?? []);
 const overview = computed(() => data.value?.overview);
 
-const config = useRuntimeConfig();
+// const config = useRuntimeConfig();
 
 const sortKey = ref<keyof Source | ''>('');
 const sortOrder = ref<'asc' | 'desc'>('asc');
 const selectedFrequency = ref<string>('all');
-const selectedCategory = ref<string>('all');
 const showPaywallOnly = ref(false);
 const showErrorsOnly = ref(false);
 const errorThreshold = ref(5);
@@ -51,9 +50,6 @@ const stats = computed(() => {
     avgErrorRate: Math.round(
       filteredSources.value.reduce((sum, s) => sum + (s.errorRate ?? 0), 0) / filteredSources.value.length
     ),
-    avgLowQuality: Math.round(
-      filteredSources.value.reduce((sum, s) => sum + (s.lowQualityRate ?? 0), 0) / filteredSources.value.length
-    ),
     avgArticlesPerDay: Math.round(
       filteredSources.value.reduce((sum, s) => sum + (s.avgPerDay || 0), 0) / filteredSources.value.length
     ),
@@ -67,11 +63,6 @@ const filteredSources = computed(() => {
   // frequency filter
   if (selectedFrequency.value !== 'all') {
     filtered = filtered.filter(source => source.frequency === selectedFrequency.value);
-  }
-
-  // category filter
-  if (selectedCategory.value !== 'all') {
-    filtered = filtered.filter(source => source.category === selectedCategory.value);
   }
 
   // paywall filter
@@ -167,7 +158,7 @@ async function addSource() {
     });
     alert('Source added successfully');
   } catch (error) {
-    console.error(sourcesError.value);
+    console.error(sourcesError, error);
     throw createError({ statusCode: 500, statusMessage: 'Failed to fetch sources' });
   }
 }
@@ -179,7 +170,7 @@ const getSourceHealth = (source: Source) => {
     : true;
 
   if ((source.errorRate ?? 0) > 10 || isStale) return 'red';
-  if ((source.errorRate ?? 0) > 0 || (source.lowQualityRate ?? 0) > 15) return 'yellow';
+  if ((source.errorRate ?? 0) > 0) return 'yellow';
   return 'green';
 };
 
@@ -208,7 +199,7 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
       <h1 class="text-xl font-medium text-gray-900">Source Analytics</h1>
 
       <!-- button to add a new source -->
-      <button @click="addSource" class="border px-4 py-2 rounded hover:cursor-pointer hover:bg-gray-100">
+      <button class="border px-4 py-2 rounded hover:cursor-pointer hover:bg-gray-100" @click="addSource">
         Add Source
       </button>
     </div>
@@ -275,18 +266,6 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
         </div>
       </div>
       <div class="bg-white p-4 rounded border">
-        <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Avg Low Quality</div>
-        <div
-          class="text-2xl font-medium"
-          :class="{
-            'text-amber-600': (stats?.avgLowQuality ?? 0) > 10,
-            'text-gray-900': (stats?.avgLowQuality ?? 0) <= 10,
-          }"
-        >
-          {{ stats?.avgLowQuality ?? '-' }}%
-        </div>
-      </div>
-      <div class="bg-white p-4 rounded border">
         <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Avg Articles/Day</div>
         <div class="text-2xl font-medium text-gray-900">{{ stats?.avgArticlesPerDay ?? '-' }}</div>
       </div>
@@ -303,25 +282,15 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
         </div>
 
         <div class="flex items-center gap-2">
-          <label class="text-gray-600">Category:</label>
-          <select v-model="selectedCategory" class="border rounded px-2 py-1.5 text-sm bg-white">
-            <option value="all">All</option>
-            <option v-for="cat in [...new Set(sources?.map(s => s.category))]" :key="cat" :value="cat">
-              {{ cat }}
-            </option>
-          </select>
-        </div>
-
-        <div class="flex items-center gap-2">
           <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="showPaywallOnly" class="rounded border-gray-300" />
+            <input v-model="showPaywallOnly" type="checkbox" class="rounded border-gray-300" />
             <span class="text-gray-600">Paywall only</span>
           </label>
         </div>
 
         <div class="flex items-center gap-2">
           <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="showErrorsOnly" class="rounded border-gray-300" />
+            <input v-model="showErrorsOnly" type="checkbox" class="rounded border-gray-300" />
             <span class="text-gray-600">Error rate above:</span>
           </label>
           <input
@@ -337,7 +306,7 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
 
         <div class="flex items-center gap-2">
           <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="enableTimeFilter" class="rounded border-gray-300" />
+            <input v-model="enableTimeFilter" type="checkbox" class="rounded border-gray-300" />
             <span class="text-gray-600">Sources checked within:</span>
           </label>
           <input
@@ -352,7 +321,7 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
 
         <div class="flex items-center gap-2">
           <label class="inline-flex items-center gap-2">
-            <input type="checkbox" v-model="enableArticleFilter" class="rounded border-gray-300" />
+            <input v-model="enableArticleFilter" type="checkbox" class="rounded border-gray-300" />
             <span class="text-gray-600">Articles:</span>
           </label>
           <select
@@ -383,7 +352,7 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
       <table class="min-w-full divide-y divide-gray-200">
         <thead>
           <tr class="bg-gray-50">
-            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-8"></th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-8" />
             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
             <th
               class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -424,15 +393,7 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
               Avg/Day
               <span v-if="sortKey === 'avgPerDay'" class="text-gray-400">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span>
             </th>
-            <th
-              class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-              @click="toggleSort('lowQualityRate')"
-            >
-              Low Quality
-              <span v-if="sortKey === 'lowQualityRate'" class="text-gray-400">{{
-                sortOrder === 'asc' ? '↑' : '↓'
-              }}</span>
-            </th>
+
             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-8">Paywall</th>
             <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
           </tr>
@@ -449,7 +410,7 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
             }"
           >
             <td class="px-4 py-2">
-              <span class="inline-block w-3 h-3 rounded-full" :class="getHealthColor(getSourceHealth(source))"></span>
+              <span class="inline-block w-3 h-3 rounded-full" :class="getHealthColor(getSourceHealth(source))" />
             </td>
             <td class="px-4 py-2">
               <NuxtLink :to="source.url" target="_blank" class="text-gray-500 hover:underline">{{
@@ -471,9 +432,7 @@ const isSourceStale = (lastChecked: string | null | undefined) => {
             <td class="px-4 py-2">{{ source.processSuccessRate?.toFixed(1) ?? 'N/A' }}%</td>
             <td class="px-4 py-2">{{ source.totalArticles }}</td>
             <td class="px-4 py-2">{{ source.avgPerDay ? source.avgPerDay.toFixed(1) : 'N/A' }}</td>
-            <td class="px-4 py-2" :class="{ 'text-amber-600': (source.lowQualityRate ?? 0) > 10 }">
-              {{ source.lowQualityRate?.toFixed(1) ?? 'N/A' }}%
-            </td>
+
             <td class="px-4 py-2">
               <component
                 :is="source.paywall ? LockClosedIcon : LockOpenIcon"

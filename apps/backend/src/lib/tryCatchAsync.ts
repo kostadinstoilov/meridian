@@ -1,4 +1,4 @@
-import { Result, ok, err } from 'neverthrow';
+import { type Result, err, ok } from 'neverthrow';
 
 /**
  * Wraps an existing Promise, converting resolution to Ok and rejection/throw to Err.

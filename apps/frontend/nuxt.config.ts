@@ -16,7 +16,7 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   devServer: { host: '0.0.0.0' },
 
-  modules: ['@nuxtjs/color-mode', 'nuxt-auth-utils'],
+  modules: ['@nuxtjs/color-mode', 'nuxt-auth-utils', '@nuxt/eslint'],
 
   nitro: { prerender: { autoSubfolderIndex: false }, cloudflare: { nodeCompat: true, deployConfig: true } },
 

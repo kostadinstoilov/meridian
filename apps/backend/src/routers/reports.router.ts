@@ -1,10 +1,10 @@
+import { zValidator } from '@hono/zod-validator';
+import { $reports, desc } from '@meridian/database';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { HonoEnv } from '../app';
-import { $reports, desc } from '@meridian/database';
-import { hasValidAuthToken, getDb } from '../lib/utils';
-import { zValidator } from '@hono/zod-validator';
 import { tryCatchAsync } from '../lib/tryCatchAsync';
+import { getDb, hasValidAuthToken } from '../lib/utils';
 
 const route = new Hono<HonoEnv>()
   .get('/last-report', async c => {

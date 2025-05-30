@@ -1,8 +1,8 @@
 import { Readability } from '@mozilla/readability';
-import { parseHTML } from 'linkedom';
 import { XMLParser } from 'fast-xml-parser';
+import { parseHTML } from 'linkedom';
+import { Result, err, ok } from 'neverthrow';
 import { z } from 'zod';
-import { ok, err, Result } from 'neverthrow';
 
 const rssFeedSchema = z.object({
   title: z.string().min(1),
@@ -23,7 +23,9 @@ function cleanUrl(url: string) {
   const u = new URL(url);
 
   const paramsToRemove = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid'];
-  paramsToRemove.forEach(param => u.searchParams.delete(param));
+  for (const param of paramsToRemove) {
+    u.searchParams.delete(param);
+  }
 
   return u.toString();
 }
@@ -56,6 +58,7 @@ export async function parseRSSFeed(xml: string): Promise<Result<z.infer<typeof r
   // handle single item case
   items = Array.isArray(items) ? items : [items];
 
+  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
   const properItems = items.map((item: any) => {
     let title = '';
     let link = '';
@@ -99,7 +102,7 @@ export async function parseRSSFeed(xml: string): Promise<Result<z.infer<typeof r
     let pubDate: Date | null = null;
     if (pubDateString) {
       pubDate = new Date(pubDateString);
-      if (isNaN(pubDate.getTime())) {
+      if (Number.isNaN(pubDate.getTime())) {
         pubDate = null;
       }
     }

@@ -1,7 +1,7 @@
+import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
 import { ImageResponse } from 'workers-og';
 import { z } from 'zod';
-import { zValidator } from '@hono/zod-validator';
 import type { HonoEnv } from '../app';
 
 const getBriefOpenGraph = (opts: { title: string; date: Date; totalArticles: number; totalSources: number }) =>
@@ -123,9 +123,9 @@ const route = new Hono<HonoEnv>()
       'query',
       z.object({
         title: z.string(),
-        date: z.string().transform(val => new Date(parseInt(val))),
-        articles: z.string().transform(val => parseInt(val)),
-        sources: z.string().transform(val => parseInt(val)),
+        date: z.string().transform(val => new Date(Number.parseInt(val))),
+        articles: z.string().transform(val => Number.parseInt(val)),
+        sources: z.string().transform(val => Number.parseInt(val)),
       })
     ),
     async c => {

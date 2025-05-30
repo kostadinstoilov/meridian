@@ -1,4 +1,4 @@
-import { WorkflowStep } from 'cloudflare:workers';
+import type { WorkflowStep } from 'cloudflare:workers';
 import { Logger } from './logger';
 
 /**
@@ -96,7 +96,7 @@ export class DomainRateLimiter<T extends BatchItem<I>, I = number | string> {
                 const lastAccess = this.lastDomainAccess.get(domain) || 0;
                 return this.options.domainCooldownMs - (currentTime - lastAccess);
               } catch {
-                return Infinity; // Skip invalid URLs
+                return Number.POSITIVE_INFINITY; // Skip invalid URLs
               }
             })
             .filter(time => time > 0) // Only consider positive wait times
@@ -128,11 +128,11 @@ export class DomainRateLimiter<T extends BatchItem<I>, I = number | string> {
       );
 
       // Add results
-      batchResults.forEach(result => {
+      for (const result of batchResults) {
         if (result.status === 'fulfilled') {
           results.push(result.value);
         }
-      });
+      }
 
       // Apply global cooldown between batches if we have more items to process
       if (remainingItems.length > 0) {

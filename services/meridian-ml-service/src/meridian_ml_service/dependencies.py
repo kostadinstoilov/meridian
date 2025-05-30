@@ -38,16 +38,24 @@ async def get_embedding_model() -> ModelComponents:
 
 ModelDep = Annotated[ModelComponents, Depends(get_embedding_model)]
 
-api_key_header = APIKeyHeader(name="X-API-Token", auto_error=False)
+api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 
 
 async def verify_token(api_key: Union[str, None] = Security(api_key_header)) -> None:
-    print(f"api_key: {api_key}")
-    print(f"settings.api: {settings.api_token}")
     if settings.api_token is None:
         return  # auth is disabled if no token is configured
 
-    if api_key != settings.api_token:
+    if api_key is None:
+        raise HTTPException(
+            status_code=HTTP_403_FORBIDDEN, detail="Invalid or missing API token"
+        )
+
+    # Extract token from Bearer format
+    token = api_key
+    if api_key.startswith("Bearer "):
+        token = api_key[7:]  # Remove "Bearer " prefix
+
+    if token != settings.api_token:
         raise HTTPException(
             status_code=HTTP_403_FORBIDDEN, detail="Invalid or missing API token"
         )

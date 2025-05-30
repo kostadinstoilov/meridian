@@ -1,7 +1,7 @@
+import { $data_sources, $ingested_items, and, eq, gte, isNotNull, lte, not } from '@meridian/database';
 import { Hono } from 'hono';
-import { HonoEnv } from '../app';
-import { $articles, $sources, eq, and, gte, lte, not, isNotNull } from '@meridian/database';
-import { hasValidAuthToken, getDb } from '../lib/utils';
+import type { HonoEnv } from '../app';
+import { getDb, hasValidAuthToken } from '../lib/utils';
 
 const route = new Hono<HonoEnv>().get('/', async c => {
   // require bearer auth token
@@ -19,7 +19,7 @@ const route = new Hono<HonoEnv>().get('/', async c => {
     // Append T07:00:00Z to ensure it's 7am UTC
     endDate = new Date(`${dateParam}T07:00:00Z`);
     // Check if date is valid
-    if (isNaN(endDate.getTime())) {
+    if (Number.isNaN(endDate.getTime())) {
       return c.json({ error: 'Invalid date format. Please use yyyy-mm-dd' }, 400);
     }
   } else {
@@ -34,35 +34,25 @@ const route = new Hono<HonoEnv>().get('/', async c => {
 
   const db = getDb(c.env.HYPERDRIVE);
   const [allSources, events] = await Promise.all([
-    db.select({ id: $sources.id, name: $sources.name }).from($sources),
+    db.select({ id: $data_sources.id, name: $data_sources.name }).from($data_sources),
     db
       .select({
-        id: $articles.id,
-        sourceId: $articles.sourceId,
-        url: $articles.url,
-        title: $articles.title,
-        publishDate: $articles.publishDate,
-        contentFileKey: $articles.contentFileKey,
-        primary_location: $articles.primary_location,
-        completeness: $articles.completeness,
-        content_quality: $articles.content_quality,
-        event_summary_points: $articles.event_summary_points,
-        thematic_keywords: $articles.thematic_keywords,
-        topic_tags: $articles.topic_tags,
-        key_entities: $articles.key_entities,
-        content_focus: $articles.content_focus,
-        embedding: $articles.embedding,
-        createdAt: $articles.createdAt,
+        id: $ingested_items.id,
+        sourceId: $ingested_items.data_source_id,
+        url: $ingested_items.url_to_original,
+        title: $ingested_items.display_title,
+        publishDate: $ingested_items.published_at,
+        contentFileKey: $ingested_items.raw_data_r2_key,
+        embedding: $ingested_items.embedding,
+        createdAt: $ingested_items.ingested_at,
       })
-      .from($articles)
+      .from($ingested_items)
       .where(
         and(
-          isNotNull($articles.primary_location),
-          gte($articles.publishDate, startDate),
-          lte($articles.publishDate, endDate),
-          not(eq($articles.content_quality, 'JUNK')),
-          not(eq($articles.completeness, 'PARTIAL_USELESS')),
-          isNotNull($articles.processedAt)
+          isNotNull($ingested_items.embedding),
+          gte($ingested_items.published_at, startDate),
+          lte($ingested_items.published_at, endDate),
+          isNotNull($ingested_items.processed_at)
         )
       ),
   ]);

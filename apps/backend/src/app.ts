@@ -1,11 +1,11 @@
+import { Hono } from 'hono';
+import { trimTrailingSlash } from 'hono/trailing-slash';
+import type { Env } from './index';
 import durableObjectsRouter from './routers/durableObjects.router';
 import eventsRouter from './routers/events.router';
 import openGraph from './routers/openGraph.router';
 import reportsRouter from './routers/reports.router';
 import sourcesRouter from './routers/sources.router';
-import { Env } from './index';
-import { Hono } from 'hono';
-import { trimTrailingSlash } from 'hono/trailing-slash';
 
 export type HonoEnv = { Bindings: Env };
 

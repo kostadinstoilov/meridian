@@ -3,11 +3,13 @@
     "wrangler.json": "jsonc"
   },
   "typescript.tsdk": "node_modules/typescript/lib",
-  "prettier.documentSelectors": ["**/*.astro"],
-  "[astro]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
+
   "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+  "eslint.useFlatConfig": true,
+  "eslint.validate": ["vue", "typescript", "javascript"],
+  "eslint.workingDirectories": ["./apps/frontend"],
+
   // hide git ignored files
   "files.exclude": {
     "**/*.turbo": true,

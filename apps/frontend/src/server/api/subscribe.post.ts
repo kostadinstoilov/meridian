@@ -36,7 +36,7 @@ export default defineEventHandler(async event => {
     ]);
 
     return { success: true, message: 'Successfully subscribed' };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Database error:', error);
     throw createError({ statusCode: 500, statusMessage: 'Database error' });
   }

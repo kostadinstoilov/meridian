@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { describe, expect, it } from 'vitest';
 import { parseRSSFeed } from '../src/lib/parsers';
-import { readFileSync } from 'fs';
-import path from 'path';
 
 describe('parseRssFeed', () => {
   // helper to load fixtures
