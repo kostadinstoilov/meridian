@@ -1,6 +1,6 @@
 CREATE TYPE "public"."ingested_item_status" AS ENUM('NEW', 'PENDING_PROCESSING', 'PROCESSED', 'FAILED_FETCH', 'FAILED_PROCESSING', 'SKIPPED_PDF', 'SKIPPED_TOO_OLD');--> statement-breakpoint
 CREATE TYPE "public"."source_type" AS ENUM('RSS');--> statement-breakpoint
-CREATE TABLE "data_sources" (
+CREATE TABLE IF NOT EXISTS "data_sources" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"source_type" "source_type" NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE "data_sources" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "ingested_items" (
+CREATE TABLE IF NOT EXISTS "ingested_items" (
 	"id" bigserial PRIMARY KEY NOT NULL,
 	"item_id_from_source" text NOT NULL,
 	"raw_data_r2_key" text NOT NULL,
@@ -37,21 +37,21 @@ CREATE TABLE "ingested_items" (
 	CONSTRAINT "uniqueSourceItem" UNIQUE("data_source_id","item_id_from_source")
 );
 --> statement-breakpoint
-CREATE TABLE "newsletter" (
+CREATE TABLE IF NOT EXISTS "newsletter" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"email" text NOT NULL,
 	"created_at" timestamp DEFAULT CURRENT_TIMESTAMP,
 	CONSTRAINT "newsletter_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
-CREATE TABLE "publishers" (
+CREATE TABLE IF NOT EXISTS "publishers" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"base_url" text,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "reports" (
+CREATE TABLE IF NOT EXISTS "reports" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"title" text NOT NULL,
 	"content" text NOT NULL,
@@ -65,6 +65,6 @@ CREATE TABLE "reports" (
 	"created_at" timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "data_sources" ADD CONSTRAINT "data_sources_publisher_id_publishers_id_fk" FOREIGN KEY ("publisher_id") REFERENCES "public"."publishers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "ingested_items" ADD CONSTRAINT "ingested_items_data_source_id_data_sources_id_fk" FOREIGN KEY ("data_source_id") REFERENCES "public"."data_sources"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "embeddingIndex" ON "ingested_items" USING hnsw ("embedding" vector_cosine_ops);
+ALTER TABLE IF EXISTS "data_sources" ADD CONSTRAINT "data_sources_publisher_id_publishers_id_fk" FOREIGN KEY ("publisher_id") REFERENCES "public"."publishers"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE IF EXISTS "ingested_items" ADD CONSTRAINT "ingested_items_data_source_id_data_sources_id_fk" FOREIGN KEY ("data_source_id") REFERENCES "public"."data_sources"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "embeddingIndex" ON "ingested_items" USING hnsw ("embedding" vector_cosine_ops);

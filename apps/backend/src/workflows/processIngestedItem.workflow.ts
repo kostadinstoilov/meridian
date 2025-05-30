@@ -1,5 +1,14 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep, type WorkflowStepConfig } from 'cloudflare:workers';
-import { $data_sources, $ingested_items, and, eq, gte, inArray, isNull } from '@meridian/database';
+import {
+  $data_sources,
+  $ingested_items,
+  and,
+  eq,
+  gte,
+  inArray,
+  isNull,
+  type DataSourceConfigWrapper,
+} from '@meridian/database';
 import { err, ok } from 'neverthrow';
 import { ResultAsync } from 'neverthrow';
 import type { Env } from '../index';
@@ -8,19 +17,10 @@ import { createEmbeddings } from '../lib/embeddings';
 import { Logger } from '../lib/logger';
 import { DomainRateLimiter } from '../lib/rateLimiter';
 import { getDb } from '../lib/utils';
-
-const TRICKY_DOMAINS = [
-  'reuters.com',
-  'nytimes.com',
-  'politico.com',
-  'science.org',
-  'alarabiya.net',
-  'reason.com',
-  'telegraph.co.uk',
-  'lawfaremedia',
-  'liberation.fr',
-  'france24.com',
-];
+import type { z } from 'zod';
+import { getArticleRepresentationPrompt } from '../prompts/articleRepresentation.prompt';
+import { createGoogleGenerativeAI, google } from '@ai-sdk/google';
+import { generateText } from 'ai';
 
 const dbStepConfig: WorkflowStepConfig = {
   retries: { limit: 3, delay: '1 second', backoff: 'linear' },
@@ -58,6 +58,10 @@ export class ProcessIngestedItemWorkflow extends WorkflowEntrypoint<Env, Process
   async run(_event: WorkflowEvent<ProcessArticlesParams>, step: WorkflowStep) {
     const env = this.env;
     const db = getDb(env.HYPERDRIVE);
+    const google = createGoogleGenerativeAI({
+      apiKey: env.GEMINI_API_KEY,
+      baseURL: env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta',
+    });
     const logger = workflowLogger.child({
       workflow_id: _event.instanceId,
       initial_article_count: _event.payload.ingested_item_ids.length,
@@ -73,6 +77,7 @@ export class ProcessIngestedItemWorkflow extends WorkflowEntrypoint<Env, Process
           title: $ingested_items.display_title,
           publishedAt: $ingested_items.published_at,
           sourceType: $data_sources.source_type,
+          config: $data_sources.config,
         })
         .from($ingested_items)
         .innerJoin($data_sources, eq($ingested_items.data_source_id, $data_sources.id))
@@ -100,23 +105,21 @@ export class ProcessIngestedItemWorkflow extends WorkflowEntrypoint<Env, Process
       title: string | null;
       publishedAt: Date | null;
       sourceType: 'RSS';
-    }>({
-      maxConcurrent: 8,
-      globalCooldownMs: 1000,
-      domainCooldownMs: 5000,
-    });
+      config: z.infer<typeof DataSourceConfigWrapper>;
+    }>({ maxConcurrent: 8, globalCooldownMs: 1_000, domainCooldownMs: 5_000 });
 
     // Process articles with rate limiting and source type dispatcher
     const articlesToProcess: Array<{
       id: number;
       title: string;
+      url: string;
       contentBodyText: string;
       contentBodyR2Key: string | null;
       wordCount: number;
       publishedTime?: string;
     }> = [];
-    const articleResults = await rateLimiter.processBatch(articles, step, async (article, domain) => {
-      const scrapeLogger = fetchLogger.child({ article_id: article.id, domain, source_type: article.sourceType });
+    const articleResults = await rateLimiter.processBatch(articles, step, async article => {
+      const scrapeLogger = fetchLogger.child({ article_id: article.id, source_type: article.sourceType });
 
       // Skip PDFs immediately
       if (article.url.toLowerCase().endsWith('.pdf')) {
@@ -139,7 +142,7 @@ export class ProcessIngestedItemWorkflow extends WorkflowEntrypoint<Env, Process
 
       // Dispatcher based on source type
       if (article.sourceType === 'RSS') {
-        return await this._processRSSArticle(article, domain, scrapeLogger, step, env);
+        return await this._processRSSArticle(article, scrapeLogger, step, env);
       }
 
       scrapeLogger.error('Unsupported source type', { source_type: article.sourceType });
@@ -160,6 +163,7 @@ export class ProcessIngestedItemWorkflow extends WorkflowEntrypoint<Env, Process
         articlesToProcess.push({
           id: result.id,
           title: result.processedContent.title,
+          url: result.processedContent.url,
           contentBodyText: result.processedContent.contentBodyText,
           contentBodyR2Key: result.processedContent.contentBodyR2Key,
           wordCount: result.processedContent.wordCount,
@@ -212,60 +216,47 @@ export class ProcessIngestedItemWorkflow extends WorkflowEntrypoint<Env, Process
     const analysisResults = await Promise.allSettled(
       articlesToProcess.map(async article => {
         const articleLogger = processingLogger.child({ article_id: article.id });
-        articleLogger.info('Analyzing article');
+        articleLogger.info('Generating article representation');
 
-        const date = article.publishedTime ? new Date(article.publishedTime) : new Date();
-        const fileKey = `${date.getUTCFullYear()}/${date.getUTCMonth() + 1}/${date.getUTCDate()}/${article.id}.txt`;
+        // Analyze article
+        const articleRepresentation = await step.do(
+          `analyze article ${article.id}`,
+          { retries: { limit: 3, delay: '2 seconds', backoff: 'exponential' }, timeout: '1 minute' },
+          async () => {
+            const response = await generateText({
+              model: google('gemini-2.0-flash-001'),
+              temperature: 0,
+              prompt: getArticleRepresentationPrompt(article.title, article.url, article.contentBodyText),
+            });
+            return response.text;
+          }
+        );
 
-        articleLogger.info('Updating article info in DB');
+        articleLogger.info('Embedding article representation');
 
         // Generate embeddings (no need to upload to R2 as it's already handled in processing)
-        const [embeddingResult] = await Promise.allSettled([
-          step.do(`generate embeddings for article ${article.id}`, async () => {
-            articleLogger.info('Generating embeddings');
-            const embeddings = await createEmbeddings(env, [`${article.title} ${article.contentBodyText}`]);
-            if (embeddings.isErr()) throw embeddings.error;
-            return embeddings.value[0];
-          }),
-        ]);
+        const embeddingResult = await step.do(`generate embeddings for article ${article.id}`, async () => {
+          articleLogger.info('Generating embeddings');
+          const embeddings = await createEmbeddings(env, [articleRepresentation]);
+          if (embeddings.isErr()) throw embeddings.error;
+          return embeddings.value[0];
+        });
 
         // handle results in a separate step
-        await step.do(`update article ${article.id} status`, async () => {
-          // check for failures
-          if (embeddingResult.status === 'rejected') {
-            const error = embeddingResult.reason;
-            articleLogger.error(
-              'Embedding generation failed',
-              { reason: String(error) },
-              error instanceof Error ? error : new Error(String(error))
-            );
-
-            await db
-              .update($ingested_items)
-              .set({
-                processed_at: new Date(),
-                fail_reason: `Embedding generation failed: ${String(error)}`,
-                status: 'FAILED_EMBEDDING',
-              })
-              .where(eq($ingested_items.id, article.id));
-            return;
-          }
-
-          // if embedding succeeded, update with success state
-          articleLogger.info('Article processing completed successfully');
-          await db
+        await step.do(`update article ${article.id} status`, async () =>
+          db
             .update($ingested_items)
             .set({
               processed_at: new Date(),
               display_title: article.title,
               content_body_text: article.contentBodyText,
               content_body_r2_key: article.contentBodyR2Key,
-              embedding: embeddingResult.value,
+              embedding: embeddingResult,
               status: 'PROCESSED',
               word_count: article.wordCount,
             })
-            .where(eq($ingested_items.id, article.id));
-        });
+            .where(eq($ingested_items.id, article.id))
+        );
 
         articleLogger.info('Article processed successfully');
 
@@ -293,8 +284,14 @@ export class ProcessIngestedItemWorkflow extends WorkflowEntrypoint<Env, Process
    * Processes RSS articles by fetching HTML content and using Readability for extraction
    */
   private async _processRSSArticle(
-    article: { id: number; url: string; title: string | null; publishedAt: Date | null; sourceType: 'RSS' },
-    domain: string,
+    article: {
+      id: number;
+      url: string;
+      title: string | null;
+      publishedAt: Date | null;
+      sourceType: 'RSS';
+      config: z.infer<typeof DataSourceConfigWrapper>;
+    },
     scrapeLogger: Logger,
     step: WorkflowStep,
     env: Env
@@ -310,7 +307,7 @@ export class ProcessIngestedItemWorkflow extends WorkflowEntrypoint<Env, Process
         { retries: { limit: 3, delay: '2 second', backoff: 'exponential' }, timeout: '2 minutes' },
         async () => {
           // During retries, let errors bubble up naturally
-          if (TRICKY_DOMAINS.includes(domain)) {
+          if (article.config.config.rss_paywall === true) {
             scrapeLogger.info('Using browser to fetch article (tricky domain)');
             const browserResult = await getArticleWithBrowser(env, article.url);
             if (browserResult.isErr()) throw browserResult.error.error;
@@ -400,6 +397,7 @@ export class ProcessIngestedItemWorkflow extends WorkflowEntrypoint<Env, Process
         title: result.parsedContent.title,
         contentBodyText,
         contentBodyR2Key,
+        url: article.url,
         wordCount,
         publishedTime: result.parsedContent.publishedTime,
       },
