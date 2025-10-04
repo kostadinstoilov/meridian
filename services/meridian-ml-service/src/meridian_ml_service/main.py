@@ -1,14 +1,23 @@
+import logging
 import numpy as np
 from fastapi import Depends, FastAPI, HTTPException
 
+from .clustering import ClusterParams, run_clustering
 from .config import settings
 from .dependencies import (
     ModelDep,
     verify_token,
     get_embedding_model,
-)  # Import auth dependency
+)
 from .embeddings import compute_embeddings
-from .schemas import EmbeddingRequest, EmbeddingResponse
+from .schemas import (
+    ClusterRequest,
+    ClusterResponse,
+    EmbeddingRequest,
+    EmbeddingResponse,
+)
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Meridian ML Service",
@@ -31,13 +40,13 @@ async def ping():
 @app.post("/embeddings", response_model=EmbeddingResponse)
 async def api_compute_embeddings(
     request: EmbeddingRequest,
-    model_components: ModelDep,  # ModelDep already includes Depends
+    model_components: ModelDep,
     _: None = Depends(verify_token),
 ):
     """
     Computes embeddings for the provided list of texts.
     """
-    print(f"Received request to embed {len(request.texts)} texts.")
+    logger.info("Received request to embed %d texts.", len(request.texts))
     try:
         embeddings_np: np.ndarray = compute_embeddings(
             texts=request.texts,
@@ -50,9 +59,90 @@ async def api_compute_embeddings(
             embeddings=embeddings_list, model_name=settings.embedding_model_name
         )
     except Exception as e:
-        print(f"ERROR during embedding computation: {e}")
-        # Consider more specific error handling based on exception types
+        logger.exception("ERROR during embedding computation")
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error during embedding computation: {str(e)}",
         ) from e
+
+
+def _to_params(p) -> ClusterParams:
+    return ClusterParams(
+        umap_neighbors=p.umap_neighbors,
+        umap_components=p.umap_components,
+        umap_min_dist=p.umap_min_dist,
+        umap_metric=p.umap_metric,
+        min_cluster_size=p.min_cluster_size,
+        min_samples=p.min_samples,
+        cluster_selection_epsilon=p.cluster_selection_epsilon,
+        cluster_selection_method=p.cluster_selection_method,
+        random_state=p.random_state,
+        create_2d_viz=p.create_2d_viz,
+        normalize_vectors=p.normalize_vectors,
+        n_jobs=p.n_jobs,
+    )
+
+
+@app.post("/cluster", response_model=ClusterResponse)
+async def api_cluster(
+    req: ClusterRequest,
+    model_components: ModelDep,
+    _: None = Depends(verify_token),
+):
+    """
+    Clusters texts or precomputed embeddings using UMAP + HDBSCAN.
+    """
+    if not req.texts and req.embeddings is None:
+        raise HTTPException(
+            status_code=400, detail="Provide either texts or embeddings."
+        )
+
+    if req.texts and req.embeddings is not None:
+        raise HTTPException(
+            status_code=400, detail="Provide either texts or embeddings, not both."
+        )
+
+    model_name = settings.embedding_model_name
+
+    # Handle empty embeddings case
+    if req.embeddings is not None and len(req.embeddings) == 0:
+        # Return an explicit umap_info so Pydantic validation succeeds.
+        umap_info = {"status": "skipped_disabled", "reason": "empty embeddings"}
+        return ClusterResponse(
+            labels=[],
+            probabilities=[],
+            reduced_vectors=[],
+            umap_2d=None,
+            umap_info=umap_info,
+            cluster_metadata={},
+            model_name=model_name,
+        )
+
+    # Process embeddings or texts
+    if req.embeddings:
+        X = np.array(req.embeddings, dtype=np.float32)
+    elif req.texts:
+        texts = [
+            t if t.startswith("passage:") or t.startswith("query:") else f"passage: {t}"
+            for t in req.texts
+        ]
+        logger.info("Received request to cluster %d texts.", len(texts))
+        embeddings_np: np.ndarray = compute_embeddings(
+            texts=texts,
+            model_components=model_components,
+        )
+        X = embeddings_np
+
+    params = _to_params(req.params)
+    reduced, labels, probs, umap_2d, meta, umap_info = run_clustering(X, params)
+
+    # umap_info is a small dict like {"status": "computed", "reason": None}
+    return ClusterResponse(
+        labels=[int(x) for x in labels.tolist()],
+        probabilities=[float(x) for x in probs.tolist()],
+        reduced_vectors=None if reduced is None else reduced.astype(float).tolist(),
+        umap_2d=None if umap_2d is None else umap_2d.astype(float).tolist(),
+        umap_info=umap_info,
+        cluster_metadata=meta,
+        model_name=model_name,
+    )
