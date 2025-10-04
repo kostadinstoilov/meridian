@@ -13,9 +13,8 @@ dependencies = [
     "transformers>=4.51.3",
     "sentence-transformers>=4.1.0", # Often simplifies embedding tasks
     "python-dotenv>=1.1.0",
-    # Add later when needed:
-    # "umap-learn>=0.5.5",
-    # "hdbscan>=0.8.33",
+    "umap-learn>=0.5.6",
+    "hdbscan>=0.8.38",
 ]
 
 [project.optional-dependencies]

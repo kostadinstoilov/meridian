@@ -206,3 +206,7 @@ NOTES.MD
 SETUP.MD
 TODO.MD
 reportV5-confidential.ipynb
+
+
+# Downloaded models for ml service
+services/meridian-ml-service/models
